@@ -158,6 +158,20 @@ PHPAPI void php_url_encode_hash_ex(HashTable *ht, smart_str *formstr,
 
 		ZVAL_DEREF(zdata);
 		if (Z_TYPE_P(zdata) == IS_ARRAY || Z_TYPE_P(zdata) == IS_OBJECT) {
+			/* If the data object is stringable handle it like a string instead of recursively */
+			zval tmp;
+			if (Z_TYPE_P(zdata) == IS_OBJECT &&
+				Z_OBJ_HT_P(zdata)->cast_object(Z_OBJ_P(zdata), &tmp, IS_STRING) == SUCCESS) {
+				php_url_encode_scalar(&tmp, formstr,
+					enc_type, idx,
+					prop_name, prop_len,
+					num_prefix, num_prefix_len,
+					key_prefix, key_prefix_len,
+					key_suffix, key_suffix_len,
+					arg_sep, arg_sep_len);
+				continue;
+			}
+
 			if (key) {
 				zend_string *ekey;
 				if (enc_type == PHP_QUERY_RFC3986) {
