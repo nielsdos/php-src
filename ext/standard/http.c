@@ -95,6 +95,61 @@ static void php_url_encode_scalar(zval *scalar, smart_str *form_str,
 	}
 }
 
+enum property_status {
+	PROPERTY_STATUS_UNDEF,
+	PROPERTY_STATUS_DYNAMIC,
+	PROPERTY_STATUS_NOT_DYNAMIC,
+};
+
+static zend_always_inline zval* compute_is_undef_or_dynamic_property(zval *zdata, enum property_status* status) {
+	if (Z_TYPE_P(zdata) == IS_INDIRECT) {
+		zdata = Z_INDIRECT_P(zdata);
+		if (Z_ISUNDEF_P(zdata)) {
+			*status = PROPERTY_STATUS_UNDEF;
+		}
+
+		*status = PROPERTY_STATUS_NOT_DYNAMIC;
+	} else {
+		*status = PROPERTY_STATUS_DYNAMIC;
+	}
+	
+	return zdata;
+}
+
+static bool has_public_properties(HashTable *ht, zval *type) {
+	zend_string *key = NULL;
+	zend_ulong _unused_idx;
+	zval *zdata = NULL;
+	ZEND_ASSERT(ht);
+	ZEND_ASSERT(type);
+
+	ZEND_HASH_FOREACH_KEY_VAL(ht, _unused_idx, key, zdata) {
+		enum property_status status;
+		zdata = compute_is_undef_or_dynamic_property(zdata, &status);
+		if (status == PROPERTY_STATUS_UNDEF) {
+			continue;
+		}
+		bool is_dynamic = status == PROPERTY_STATUS_DYNAMIC;
+
+		if (zend_check_property_access(Z_OBJ_P(type), key, is_dynamic) == SUCCESS) {
+			/* property visible in this scope */
+			return true;
+		}
+	} ZEND_HASH_FOREACH_END();
+
+	return false;
+}
+
+static bool should_handle_object_as_stringable(zval *zdata, zval *tmp) {
+	/* If the data object is stringable and has no properties handle it like a string instead of recursively */
+	if (Z_TYPE_P(zdata) == IS_OBJECT &&
+		!has_public_properties(HASH_OF(zdata), zdata) &&
+		Z_OBJ_HT_P(zdata)->cast_object(Z_OBJ_P(zdata), tmp, IS_STRING) == SUCCESS) {
+			return true;
+	}
+	return false;
+}
+
 /* {{{ php_url_encode_hash */
 PHPAPI void php_url_encode_hash_ex(HashTable *ht, smart_str *formstr,
 				const char *num_prefix, size_t num_prefix_len,
@@ -124,21 +179,15 @@ PHPAPI void php_url_encode_hash_ex(HashTable *ht, smart_str *formstr,
 	arg_sep_len = strlen(arg_sep);
 
 	ZEND_HASH_FOREACH_KEY_VAL(ht, idx, key, zdata) {
-		bool is_dynamic = 1;
-		if (Z_TYPE_P(zdata) == IS_INDIRECT) {
-			zdata = Z_INDIRECT_P(zdata);
-			if (Z_ISUNDEF_P(zdata)) {
-				continue;
-			}
-
-			is_dynamic = 0;
+		enum property_status status;
+		zdata = compute_is_undef_or_dynamic_property(zdata, &status);
+		if (status == PROPERTY_STATUS_UNDEF) {
+			continue;
 		}
+		bool is_dynamic = status == PROPERTY_STATUS_DYNAMIC;
 
 		/* handling for private & protected object properties */
 		if (key) {
-			prop_name = ZSTR_VAL(key);
-			prop_len = ZSTR_LEN(key);
-
 			if (type != NULL && zend_check_property_access(Z_OBJ_P(type), key, is_dynamic) != SUCCESS) {
 				/* property not visible in this scope */
 				continue;
@@ -158,10 +207,8 @@ PHPAPI void php_url_encode_hash_ex(HashTable *ht, smart_str *formstr,
 
 		ZVAL_DEREF(zdata);
 		if (Z_TYPE_P(zdata) == IS_ARRAY || Z_TYPE_P(zdata) == IS_OBJECT) {
-			/* If the data object is stringable handle it like a string instead of recursively */
 			zval tmp;
-			if (Z_TYPE_P(zdata) == IS_OBJECT &&
-				Z_OBJ_HT_P(zdata)->cast_object(Z_OBJ_P(zdata), &tmp, IS_STRING) == SUCCESS) {
+			if (should_handle_object_as_stringable(zdata, &tmp)) {
 				php_url_encode_scalar(&tmp, formstr,
 					enc_type, idx,
 					prop_name, prop_len,
@@ -169,6 +216,7 @@ PHPAPI void php_url_encode_hash_ex(HashTable *ht, smart_str *formstr,
 					key_prefix, key_prefix_len,
 					key_suffix, key_suffix_len,
 					arg_sep, arg_sep_len);
+				zval_ptr_dtor(&tmp);
 				continue;
 			}
 
@@ -269,7 +317,20 @@ PHP_FUNCTION(http_build_query)
 		Z_PARAM_LONG(enc_type)
 	ZEND_PARSE_PARAMETERS_END();
 
-	php_url_encode_hash_ex(HASH_OF(formdata), &formstr, prefix, prefix_len, NULL, 0, NULL, 0, (Z_TYPE_P(formdata) == IS_OBJECT ? formdata : NULL), arg_sep, (int)enc_type);
+	/* Special case when we get an object that's stringable as input */
+	zval tmp;
+	if (should_handle_object_as_stringable(formdata, &tmp)) {
+		php_url_encode_scalar(&tmp, &formstr,
+			enc_type, 0,
+			NULL, 0,
+			prefix, prefix_len,
+			NULL, 0,
+			NULL, 0,
+			arg_sep, arg_sep_len);
+		zval_ptr_dtor(&tmp);
+	} else {
+		php_url_encode_hash_ex(HASH_OF(formdata), &formstr, prefix, prefix_len, NULL, 0, NULL, 0, (Z_TYPE_P(formdata) == IS_OBJECT ? formdata : NULL), arg_sep, (int)enc_type);
+	}
 
 	if (!formstr.s) {
 		RETURN_EMPTY_STRING();
