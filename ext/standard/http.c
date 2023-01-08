@@ -143,7 +143,9 @@ static bool has_public_properties(HashTable *ht, zval *type) {
 static bool should_handle_object_as_stringable(zval *zdata, zval *tmp) {
 	/* If the data object is stringable and has no properties handle it like a string instead of recursively */
 	if (Z_TYPE_P(zdata) == IS_OBJECT &&
-		Z_OBJCE_P(zdata)->__tostring && /* check this before checking for properties for performance optimisation */
+		/* Fast check if it can be casted to a string first before checking for properties.
+		 * This improves performance a bit by skipping unnecessary work. */
+		(Z_OBJ_P(zdata)->handlers->cast_object != zend_std_cast_object_tostring || Z_OBJCE_P(zdata)->__tostring) &&
 		!has_public_properties(HASH_OF(zdata), zdata) &&
 		Z_OBJ_HT_P(zdata)->cast_object(Z_OBJ_P(zdata), tmp, IS_STRING) == SUCCESS) {
 			return true;
