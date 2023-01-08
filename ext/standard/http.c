@@ -143,6 +143,7 @@ static bool has_public_properties(HashTable *ht, zval *type) {
 static bool should_handle_object_as_stringable(zval *zdata, zval *tmp) {
 	/* If the data object is stringable and has no properties handle it like a string instead of recursively */
 	if (Z_TYPE_P(zdata) == IS_OBJECT &&
+		Z_OBJCE_P(zdata)->__tostring && /* check this before checking for properties for performance optimisation */
 		!has_public_properties(HASH_OF(zdata), zdata) &&
 		Z_OBJ_HT_P(zdata)->cast_object(Z_OBJ_P(zdata), tmp, IS_STRING) == SUCCESS) {
 			return true;
@@ -184,10 +185,10 @@ PHPAPI void php_url_encode_hash_ex(HashTable *ht, smart_str *formstr,
 		if (status == PROPERTY_STATUS_UNDEF) {
 			continue;
 		}
-		bool is_dynamic = status == PROPERTY_STATUS_DYNAMIC;
 
 		/* handling for private & protected object properties */
 		if (key) {
+			bool is_dynamic = status == PROPERTY_STATUS_DYNAMIC;
 			if (type != NULL && zend_check_property_access(Z_OBJ_P(type), key, is_dynamic) != SUCCESS) {
 				/* property not visible in this scope */
 				continue;
