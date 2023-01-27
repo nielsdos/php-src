@@ -1984,6 +1984,9 @@ ZEND_API zend_result ZEND_FASTCALL concat_function(zval *result, zval *op1, zval
 
 		memcpy(ZSTR_VAL(result_str) + op1_len, Z_STRVAL_P(op2), op2_len);
 		ZSTR_VAL(result_str)[result_len] = '\0';
+		if (ZSTR_IS_VALID_UTF8(Z_STR_P(op1)) && ZSTR_IS_VALID_UTF8(Z_STR_P(op2))) {
+			GC_ADD_FLAGS(result_str, IS_STR_VALID_UTF8);
+		}
 	}
 
 	zval_ptr_dtor_str(&op1_copy);
