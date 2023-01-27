@@ -384,6 +384,11 @@ ZEND_VM_HANDLER(8, ZEND_CONCAT, CONST|TMPVAR|CV, CONST|TMPVAR|CV, SPEC(NO_CONST_
 		zend_string *op1_str = Z_STR_P(op1);
 		zend_string *op2_str = Z_STR_P(op2);
 		zend_string *str;
+		uint32_t flags = 0;
+
+		if (ZSTR_IS_VALID_UTF8(op1_str) && ZSTR_IS_VALID_UTF8(op2_str)) {
+			flags = IS_STR_VALID_UTF8;
+		}
 
 		if (OP1_TYPE != IS_CONST && UNEXPECTED(ZSTR_LEN(op1_str) == 0)) {
 			if (OP2_TYPE == IS_CONST || OP2_TYPE == IS_CV) {
@@ -428,6 +433,7 @@ ZEND_VM_HANDLER(8, ZEND_CONCAT, CONST|TMPVAR|CV, CONST|TMPVAR|CV, SPEC(NO_CONST_
 				zend_string_release_ex(op2_str, 0);
 			}
 		}
+		GC_ADD_FLAGS(Z_STR_P(EX_VAR(opline->result.var)), flags);
 		ZEND_VM_NEXT_OPCODE();
 	} else {
 		SAVE_OPLINE();
@@ -3140,6 +3146,11 @@ ZEND_VM_COLD_CONSTCONST_HANDLER(53, ZEND_FAST_CONCAT, CONST|TMPVAR|CV, CONST|TMP
 		zend_string *op1_str = Z_STR_P(op1);
 		zend_string *op2_str = Z_STR_P(op2);
 		zend_string *str;
+		uint32_t flags = 0;
+
+		if (ZSTR_IS_VALID_UTF8(op1_str) && ZSTR_IS_VALID_UTF8(op2_str)) {
+			flags = IS_STR_VALID_UTF8;
+		}
 
 		if (OP1_TYPE != IS_CONST && UNEXPECTED(ZSTR_LEN(op1_str) == 0)) {
 			if (OP2_TYPE == IS_CONST || OP2_TYPE == IS_CV) {
@@ -3181,6 +3192,7 @@ ZEND_VM_COLD_CONSTCONST_HANDLER(53, ZEND_FAST_CONCAT, CONST|TMPVAR|CV, CONST|TMP
 				zend_string_release_ex(op2_str, 0);
 			}
 		}
+		GC_ADD_FLAGS(Z_STR_P(EX_VAR(opline->result.var)), flags);
 		ZEND_VM_NEXT_OPCODE();
 	}
 
@@ -3233,6 +3245,10 @@ ZEND_VM_COLD_CONSTCONST_HANDLER(53, ZEND_FAST_CONCAT, CONST|TMPVAR|CV, CONST|TMP
 		str = zend_string_alloc(ZSTR_LEN(op1_str) + ZSTR_LEN(op2_str), 0);
 		memcpy(ZSTR_VAL(str), ZSTR_VAL(op1_str), ZSTR_LEN(op1_str));
 		memcpy(ZSTR_VAL(str) + ZSTR_LEN(op1_str), ZSTR_VAL(op2_str), ZSTR_LEN(op2_str)+1);
+
+		if (ZSTR_IS_VALID_UTF8(op1_str) && ZSTR_IS_VALID_UTF8(op2_str)) {
+			GC_ADD_FLAGS(str, IS_STR_VALID_UTF8);
+		}
 		ZVAL_NEW_STR(EX_VAR(opline->result.var), str);
 		if (OP1_TYPE != IS_CONST) {
 			zend_string_release_ex(op1_str, 0);
