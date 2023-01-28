@@ -3,7 +3,7 @@ Check that strings are marked as valid UTF-8
 --EXTENSIONS--
 zend_test
 --XFAIL--
-Flag is not set in assignments
+Flag is not set in assignment when concatenating known UTF-8 strings
 --FILE--
 <?php
 echo "Empty strings:\n";
@@ -37,9 +37,37 @@ $s = $s1 . $s2;
 var_dump($s);
 var_dump(zend_test_is_string_marked_as_valid_utf8($s));
 
+echo "Multiple concatenation known valid UTF-8 strings in variables:\n";
+$s1 = "f";
+$s2 = "o";
+$s = $s1 . $s2 . $s2;
+var_dump($s);
+var_dump(zend_test_is_string_marked_as_valid_utf8($s));
+
+echo "Concatenation known valid UTF-8 in assignment:\n";
+$s = "f" . "o";
+var_dump($s);
+var_dump(zend_test_is_string_marked_as_valid_utf8($s));
+
 echo "Multiple concatenation known valid UTF-8 in assignment:\n";
 $s = "f" . "o" . "o";
 var_dump($s);
+var_dump(zend_test_is_string_marked_as_valid_utf8($s));
+
+echo "Concatenation known valid UTF-8 string with empty string in variables:\n";
+$s1 = "f";
+$s2 = "";
+$s = $s1 . $s2;
+var_dump(zend_test_is_string_marked_as_valid_utf8($s));
+$s1 = "f";
+$s2 = "";
+$s = $s2 . $s1;
+var_dump(zend_test_is_string_marked_as_valid_utf8($s));
+
+echo "Concatenation known valid UTF-8 string with empty string in assignment:\n";
+$s = "f" . "";
+var_dump(zend_test_is_string_marked_as_valid_utf8($s));
+$s = "" . "f";
 var_dump(zend_test_is_string_marked_as_valid_utf8($s));
 
 echo "Concatenation in loop:\n";
@@ -89,8 +117,20 @@ bool(true)
 Concatenation known valid UTF-8 strings in variables:
 string(2) "fo"
 bool(true)
+Multiple concatenation known valid UTF-8 strings in variables:
+string(3) "foo"
+bool(true)
+Concatenation known valid UTF-8 in assignment:
+string(2) "fo"
+bool(true)
 Multiple concatenation known valid UTF-8 in assignment:
 string(3) "foo"
+bool(true)
+Concatenation known valid UTF-8 string with empty string in variables:
+bool(true)
+bool(true)
+Concatenation known valid UTF-8 string with empty string in assignment:
+bool(true)
 bool(true)
 Concatenation in loop:
 bool(true)
