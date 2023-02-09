@@ -2,7 +2,7 @@
 
 function get_cgi_path() /* {{{ */
 {
-    $php = getenv("TEST_PHP_EXECUTABLE");
+    $php = getenv("TEST_PHP_EXECUTABLE_ESCAPED");
 
     $cli = false;
     $cgi = false;

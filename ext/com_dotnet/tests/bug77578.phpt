@@ -6,7 +6,7 @@ com_dotnet
 <?php
 // To actually be able to verify the crash during shutdown on Windows, we have
 // to execute a PHP subprocess, and check its exit status.
-$php = PHP_BINARY;
+$php = getenv('TEST_PHP_EXECUTABLE_ESCAPED');
 $ini = php_ini_loaded_file();
 $iniopt = $ini ? "-c $ini" : '';
 $command = "$php $iniopt -d extension=com_dotnet -d com.autoregister_typelib=1 -r \"new COM('WbemScripting.SWbemLocator');\"";
