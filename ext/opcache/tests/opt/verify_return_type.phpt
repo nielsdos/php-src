@@ -8,8 +8,6 @@ opcache.opt_debug_level=0x20000
 opcache.preload=
 --EXTENSIONS--
 opcache
---XFAIL--
-Return types cannot be inferred through prototypes
 --FILE--
 <?php
 
@@ -131,6 +129,8 @@ Test2::getInt3:
 0003 V1 = DO_FCALL
 0004 VERIFY_RETURN_TYPE V1
 0005 RETURN V1
+LIVE RANGES:
+     1: 0004 - 0005 (tmp/var)
 
 Test3::getBool:
      ; (lines=1, args=0, vars=0, tmps=0)
@@ -143,4 +143,4 @@ Test3::getBool2:
      ; (after optimizer)
      ; %s
 0000 V0 = QM_ASSIGN bool(true)
-0001 RETURN bool(true)
+0001 RETURN V0
