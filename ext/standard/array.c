@@ -3864,6 +3864,38 @@ static zend_always_inline void php_array_replace_wrapper(INTERNAL_FUNCTION_PARAM
 }
 /* }}} */
 
+static bool prepare_in_place_array_modify_if_possible(const zend_execute_data *execute_data, const zval *arg)
+{
+	ZEND_ASSERT(HT_IS_PACKED(Z_ARRVAL_P(arg)));
+
+	/* 2 refs: the CV and the argument */
+	if (Z_REFCOUNT_P(arg) != 2) {
+		return false;
+	}
+	/* If it has holes, it might get sequentialized */
+	if (!HT_IS_WITHOUT_HOLES(Z_ARRVAL_P(arg))) {
+		return false;
+	}
+	/* Immutable => no modification allowed */
+	if (GC_FLAGS(Z_ARRVAL_P(arg)) & IS_ARRAY_IMMUTABLE) {
+		return false;
+	}
+
+	const zend_op *call_opline = execute_data->prev_execute_data->opline;
+	const zend_op *next_opline = call_opline + 1;
+	zval *var = ZEND_CALL_VAR(execute_data->prev_execute_data, next_opline->op1.var);
+
+	/* Must be an assignment to the same array */
+	if (next_opline->opcode != ZEND_ASSIGN || next_opline->op2.var != call_opline->result.var || Z_ARRVAL_P(arg) != Z_ARRVAL_P(var)) {
+		return false;
+	}
+
+	/* Must set the CV to NULL so we don't destroy the array on assignment */
+	ZVAL_NULL(var);
+
+	return true;
+}
+
 static zend_always_inline void php_array_merge_wrapper(INTERNAL_FUNCTION_PARAMETERS, int recursive) /* {{{ */
 {
 	zval *args = NULL;
@@ -3925,22 +3957,35 @@ static zend_always_inline void php_array_merge_wrapper(INTERNAL_FUNCTION_PARAMET
 
 	arg = args;
 	src  = Z_ARRVAL_P(arg);
-	/* copy first array */
-	array_init_size(return_value, count);
-	dest = Z_ARRVAL_P(return_value);
+	bool add_ref = false;
+	/* copy first array if necessary */
 	if (HT_IS_PACKED(src)) {
-		zend_hash_real_init_packed(dest);
-		ZEND_HASH_FILL_PACKED(dest) {
-			ZEND_HASH_PACKED_FOREACH_VAL(src, src_entry) {
-				if (UNEXPECTED(Z_ISREF_P(src_entry) &&
-					Z_REFCOUNT_P(src_entry) == 1)) {
-					src_entry = Z_REFVAL_P(src_entry);
-				}
-				Z_TRY_ADDREF_P(src_entry);
-				ZEND_HASH_FILL_ADD(src_entry);
-			} ZEND_HASH_FOREACH_END();
-		} ZEND_HASH_FILL_END();
+		if (prepare_in_place_array_modify_if_possible(execute_data, arg)) {
+			/* Make RC 1 such that the array may be modified, add_ref will make sure the refcount gets back to 2 at the end */
+			GC_DELREF(src);
+			add_ref = true;
+			dest = src;
+			ZVAL_ARR(return_value, dest);
+		} else {
+			array_init_size(return_value, count);
+			dest = Z_ARRVAL_P(return_value);
+
+			zend_hash_real_init_packed(dest);
+			ZEND_HASH_FILL_PACKED(dest) {
+				ZEND_HASH_PACKED_FOREACH_VAL(src, src_entry) {
+					if (UNEXPECTED(Z_ISREF_P(src_entry) &&
+						Z_REFCOUNT_P(src_entry) == 1)) {
+						src_entry = Z_REFVAL_P(src_entry);
+					}
+					Z_TRY_ADDREF_P(src_entry);
+					ZEND_HASH_FILL_ADD(src_entry);
+				} ZEND_HASH_FOREACH_END();
+			} ZEND_HASH_FILL_END();
+		}
 	} else {
+		array_init_size(return_value, count);
+		dest = Z_ARRVAL_P(return_value);
+
 		zend_string *string_key;
 		zend_hash_real_init_mixed(dest);
 		ZEND_HASH_MAP_FOREACH_STR_KEY_VAL(src, string_key, src_entry) {
@@ -3966,6 +4011,10 @@ static zend_always_inline void php_array_merge_wrapper(INTERNAL_FUNCTION_PARAMET
 			arg = args + i;
 			php_array_merge(dest, Z_ARRVAL_P(arg));
 		}
+	}
+
+	if (add_ref) {
+		GC_ADDREF(src);
 	}
 }
 /* }}} */
