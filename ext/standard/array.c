@@ -3865,7 +3865,8 @@ static zend_always_inline void php_array_replace_wrapper(INTERNAL_FUNCTION_PARAM
 /* }}} */
 
 /* Returns true if it's possible to do an in-place array modification, preventing a costly copy.
- * It also modifies the CV to prevent freeing it upon assigning. */
+ * It also modifies the CV to prevent freeing it upon assigning.
+ * If this returns true you need to add a ref at the end of the modification for the return value. */
 static bool prepare_in_place_array_modify_if_possible(const zend_execute_data *execute_data, const zval *arg)
 {
 	/* 2 refs: the CV and the argument; or 1 ref for a temporary passed as argument */
@@ -3900,7 +3901,7 @@ static bool prepare_in_place_array_modify_if_possible(const zend_execute_data *e
 		}
 		/* Must set the CV to NULL so we don't destroy the array on assignment */
 		ZVAL_NULL(var);
-		/* Make RC 1 such that the array may be modified, update_refcount will make sure the refcount gets back to 2 at the end */
+		/* Make RC 1 such that the array may be modified */
 		GC_DELREF(Z_ARRVAL_P(arg));
 	}
 
