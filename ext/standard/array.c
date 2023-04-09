@@ -3866,27 +3866,30 @@ static zend_always_inline void php_array_replace_wrapper(INTERNAL_FUNCTION_PARAM
 
 static bool prepare_in_place_array_modify_if_possible(const zend_execute_data *execute_data, const zval *arg)
 {
-	ZEND_ASSERT(HT_IS_PACKED(Z_ARRVAL_P(arg)));
-
 	/* 2 refs: the CV and the argument */
-	if (Z_REFCOUNT_P(arg) != 2) {
-		return false;
-	}
-	/* If it has holes, it might get sequentialized */
-	if (!HT_IS_WITHOUT_HOLES(Z_ARRVAL_P(arg))) {
+	if (Z_REFCOUNT_P(arg) != 2) { // TODO: ook RC1 toelaten maar met refcount caveat
 		return false;
 	}
 	/* Immutable => no modification allowed */
 	if (GC_FLAGS(Z_ARRVAL_P(arg)) & IS_ARRAY_IMMUTABLE) {
 		return false;
 	}
+	/* Potentially possible with fake frames during optimization */
+	if (UNEXPECTED(!execute_data->prev_execute_data)) {
+		return false;
+	}
 
 	const zend_op *call_opline = execute_data->prev_execute_data->opline;
 	const zend_op *next_opline = call_opline + 1;
-	zval *var = ZEND_CALL_VAR(execute_data->prev_execute_data, next_opline->op1.var);
 
-	/* Must be an assignment to the same array */
-	if (next_opline->opcode != ZEND_ASSIGN || next_opline->op2.var != call_opline->result.var || Z_ARRVAL_P(arg) != Z_ARRVAL_P(var)) {
+	/* Must be an assignment from the result of the call to a CV */
+	if (next_opline->opcode != ZEND_ASSIGN || next_opline->op1_type != IS_CV || next_opline->op2.var != call_opline->result.var) {
+		return false;
+	}
+
+	/* Must be an assignment to the same array as the input */
+	zval *var = ZEND_CALL_VAR(execute_data->prev_execute_data, next_opline->op1.var);
+	if (Z_TYPE_P(var) != IS_ARRAY || Z_ARRVAL_P(arg) != Z_ARRVAL_P(var)) {
 		return false;
 	}
 
@@ -3960,7 +3963,8 @@ static zend_always_inline void php_array_merge_wrapper(INTERNAL_FUNCTION_PARAMET
 	bool add_ref = false;
 	/* copy first array if necessary */
 	if (HT_IS_PACKED(src)) {
-		if (prepare_in_place_array_modify_if_possible(execute_data, arg)) {
+		/* Note: If it has holes, it might get sequentialized */
+		if (HT_IS_WITHOUT_HOLES(src) && prepare_in_place_array_modify_if_possible(execute_data, arg)) {
 			/* Make RC 1 such that the array may be modified, add_ref will make sure the refcount gets back to 2 at the end */
 			GC_DELREF(src);
 			add_ref = true;
