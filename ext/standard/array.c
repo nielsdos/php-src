@@ -3864,32 +3864,35 @@ static zend_always_inline void php_array_replace_wrapper(INTERNAL_FUNCTION_PARAM
 }
 /* }}} */
 
-static bool prepare_in_place_array_modify_if_possible(const zend_execute_data *execute_data, const zval *arg, bool *update_refcount)
+/* Returns true if it's possible to do an in-place array modification, preventing a costly copy.
+ * It also modifies the CV to prevent freeing it upon assigning. */
+static bool prepare_in_place_array_modify_if_possible(const zend_execute_data *execute_data, const zval *arg)
 {
-	/* 2 refs: the CV and the argument; or 1 ref for a temporary */
+	/* 2 refs: the CV and the argument; or 1 ref for a temporary passed as argument */
 	uint32_t refcount = Z_REFCOUNT_P(arg);
 	ZEND_ASSERT(refcount > 0);
 	if (refcount > 2) {
 		return false;
 	}
-	/* Immutable => no modification allowed */
-	if (GC_FLAGS(Z_ARRVAL_P(arg)) & IS_ARRAY_IMMUTABLE) {
-		return false;
-	}
-	/* Potentially possible with fake frames during optimization */
-	if (UNEXPECTED(!execute_data->prev_execute_data)) {
-		return false;
-	}
-
-	const zend_op *call_opline = execute_data->prev_execute_data->opline;
-	const zend_op *next_opline = call_opline + 1;
-
-	/* Must be an assignment from the result of the call to a CV */
-	if (next_opline->opcode != ZEND_ASSIGN || next_opline->op1_type != IS_CV || next_opline->op2.var != call_opline->result.var) {
+	/* Immutable or persistent => no modification allowed */
+	if (GC_FLAGS(Z_ARRVAL_P(arg)) & (IS_ARRAY_IMMUTABLE | IS_ARRAY_PERSISTENT)) {
 		return false;
 	}
 
 	if (refcount == 2) {
+		/* Potentially possible with fake frames during optimization */
+		if (UNEXPECTED(!execute_data->prev_execute_data)) {
+			return false;
+		}
+
+		const zend_op *call_opline = execute_data->prev_execute_data->opline;
+		const zend_op *next_opline = call_opline + 1;
+
+		/* Must be an assignment from the result of the call to a CV */
+		if (next_opline->opcode != ZEND_ASSIGN || next_opline->op1_type != IS_CV || next_opline->op2.var != call_opline->result.var) {
+			return false;
+		}
+
 		/* Must be an assignment to the same array as the input */
 		zval *var = ZEND_CALL_VAR(execute_data->prev_execute_data, next_opline->op1.var);
 		if (Z_TYPE_P(var) != IS_ARRAY || Z_ARRVAL_P(arg) != Z_ARRVAL_P(var)) {
@@ -3897,7 +3900,6 @@ static bool prepare_in_place_array_modify_if_possible(const zend_execute_data *e
 		}
 		/* Must set the CV to NULL so we don't destroy the array on assignment */
 		ZVAL_NULL(var);
-		*update_refcount = true;
 		/* Make RC 1 such that the array may be modified, update_refcount will make sure the refcount gets back to 2 at the end */
 		GC_DELREF(Z_ARRVAL_P(arg));
 	}
@@ -3970,7 +3972,8 @@ static zend_always_inline void php_array_merge_wrapper(INTERNAL_FUNCTION_PARAMET
 	/* copy first array if necessary */
 	if (HT_IS_PACKED(src)) {
 		/* Note: If it has holes, it might get sequentialized */
-		if (HT_IS_WITHOUT_HOLES(src) && prepare_in_place_array_modify_if_possible(execute_data, arg, &update_refcount)) {
+		if (HT_IS_WITHOUT_HOLES(src) && prepare_in_place_array_modify_if_possible(execute_data, arg)) {
+			update_refcount = true;
 			dest = src;
 			ZVAL_ARR(return_value, dest);
 		} else {
