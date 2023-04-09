@@ -4633,7 +4633,13 @@ PHP_FUNCTION(array_unique)
 
 	cmp = php_get_data_compare_func_unstable(sort_type, 0);
 
-	RETVAL_ARR(zend_array_dup(Z_ARRVAL_P(array)));
+	bool update_refcount = false;
+	if (prepare_in_place_array_modify_if_possible(execute_data, array)) {
+		update_refcount = true;
+		RETVAL_ARR(Z_ARRVAL_P(array));
+	} else {
+		RETVAL_ARR(zend_array_dup(Z_ARRVAL_P(array)));
+	}
 
 	/* create and sort array with pointers to the target_hash buckets */
 	arTmp = pemalloc((Z_ARRVAL_P(array)->nNumOfElements + 1) * sizeof(struct bucketindex), GC_FLAGS(Z_ARRVAL_P(array)) & IS_ARRAY_PERSISTENT);
@@ -4679,6 +4685,10 @@ PHP_FUNCTION(array_unique)
 		}
 	}
 	pefree(arTmp, GC_FLAGS(Z_ARRVAL_P(array)) & IS_ARRAY_PERSISTENT);
+
+	if (update_refcount) {
+		GC_ADDREF(Z_ARRVAL_P(array));
+	}
 }
 /* }}} */
 
