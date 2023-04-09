@@ -3864,7 +3864,7 @@ static zend_always_inline void php_array_replace_wrapper(INTERNAL_FUNCTION_PARAM
 }
 /* }}} */
 
-static bool prepare_in_place_array_modify_if_possible(const zend_execute_data *execute_data, const zval *arg, bool *add_ref)
+static bool prepare_in_place_array_modify_if_possible(const zend_execute_data *execute_data, const zval *arg, bool *update_refcount)
 {
 	/* 2 refs: the CV and the argument; or 1 ref for a temporary */
 	uint32_t refcount = Z_REFCOUNT_P(arg);
@@ -3897,8 +3897,8 @@ static bool prepare_in_place_array_modify_if_possible(const zend_execute_data *e
 		}
 		/* Must set the CV to NULL so we don't destroy the array on assignment */
 		ZVAL_NULL(var);
-		*add_ref = true;
-		/* Make RC 1 such that the array may be modified, add_ref will make sure the refcount gets back to 2 at the end */
+		*update_refcount = true;
+		/* Make RC 1 such that the array may be modified, update_refcount will make sure the refcount gets back to 2 at the end */
 		GC_DELREF(Z_ARRVAL_P(arg));
 	}
 
@@ -3966,11 +3966,11 @@ static zend_always_inline void php_array_merge_wrapper(INTERNAL_FUNCTION_PARAMET
 
 	arg = args;
 	src  = Z_ARRVAL_P(arg);
-	bool add_ref = false;
+	bool update_refcount = false;
 	/* copy first array if necessary */
 	if (HT_IS_PACKED(src)) {
 		/* Note: If it has holes, it might get sequentialized */
-		if (HT_IS_WITHOUT_HOLES(src) && prepare_in_place_array_modify_if_possible(execute_data, arg, &add_ref)) {
+		if (HT_IS_WITHOUT_HOLES(src) && prepare_in_place_array_modify_if_possible(execute_data, arg, &update_refcount)) {
 			dest = src;
 			ZVAL_ARR(return_value, dest);
 		} else {
@@ -4020,7 +4020,7 @@ static zend_always_inline void php_array_merge_wrapper(INTERNAL_FUNCTION_PARAMET
 		}
 	}
 
-	if (add_ref) {
+	if (update_refcount) {
 		GC_ADDREF(src);
 	}
 }
