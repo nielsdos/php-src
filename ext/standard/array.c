@@ -4824,6 +4824,7 @@ static void php_array_intersect(INTERNAL_FUNCTION_PARAMETERS, int behavior, int 
 	zend_fcall_info *fci_key = NULL, *fci_data;
 	zend_fcall_info_cache *fci_key_cache = NULL, *fci_data_cache;
 	PHP_ARRAY_CMP_FUNC_VARS;
+	bool in_place = false;
 
 	bucket_compare_func_t intersect_key_compare_func;
 	bucket_compare_func_t intersect_data_compare_func;
@@ -4908,6 +4909,8 @@ static void php_array_intersect(INTERNAL_FUNCTION_PARAMETERS, int behavior, int 
 	} else if ((behavior & INTERSECT_ASSOC) && key_compare_type == INTERSECT_COMP_KEY_USER) {
 		BG(user_compare_fci) = *fci_key;
 		BG(user_compare_fci_cache) = *fci_key_cache;
+	} else {
+		in_place = true;
 	}
 
 	for (i = 0; i < arr_argc; i++) {
@@ -4950,8 +4953,12 @@ static void php_array_intersect(INTERNAL_FUNCTION_PARAMETERS, int behavior, int 
 		}
 	}
 
-	/* copy the argument array */
-	RETVAL_ARR(zend_array_dup(Z_ARRVAL(args[0])));
+	/* copy the argument array if necessary */
+	if (in_place) {
+		in_place = set_return_value_dup_or_in_place(execute_data, &args[0], return_value);
+	} else {
+		RETVAL_ARR(zend_array_dup(Z_ARRVAL(args[0])));
+	}
 
 	/* go through the lists and look for common values */
 	while (Z_TYPE(ptrs[0]->val) != IS_UNDEF) {
