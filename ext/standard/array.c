@@ -5069,6 +5069,10 @@ out:
 
 	efree(ptrs);
 	efree(lists);
+
+	if (in_place) {
+		GC_ADDREF(Z_ARRVAL_P(return_value));
+	}
 }
 /* }}} */
 
