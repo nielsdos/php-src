@@ -3825,45 +3825,6 @@ PHPAPI int php_array_replace_recursive(HashTable *dest, HashTable *src) /* {{{ *
 }
 /* }}} */
 
-static zend_always_inline void php_array_replace_wrapper(INTERNAL_FUNCTION_PARAMETERS, int recursive) /* {{{ */
-{
-	zval *args = NULL;
-	zval *arg;
-	int argc, i;
-	HashTable *dest;
-
-	ZEND_PARSE_PARAMETERS_START(1, -1)
-		Z_PARAM_VARIADIC('+', args, argc)
-	ZEND_PARSE_PARAMETERS_END();
-
-
-	for (i = 0; i < argc; i++) {
-		zval *arg = args + i;
-
-		if (Z_TYPE_P(arg) != IS_ARRAY) {
-			zend_argument_type_error(i + 1, "must be of type array, %s given", zend_zval_value_name(arg));
-			RETURN_THROWS();
-		}
-	}
-
-	/* copy first array */
-	arg = args;
-	dest = zend_array_dup(Z_ARRVAL_P(arg));
-	ZVAL_ARR(return_value, dest);
-	if (recursive) {
-		for (i = 1; i < argc; i++) {
-			arg = args + i;
-			php_array_replace_recursive(dest, Z_ARRVAL_P(arg));
-		}
-	} else {
-		for (i = 1; i < argc; i++) {
-			arg = args + i;
-			zend_hash_merge(dest, Z_ARRVAL_P(arg), zval_add_ref, 1);
-		}
-	}
-}
-/* }}} */
-
 /* Returns true if it's possible to do an in-place array modification, preventing a costly copy.
  * It also modifies the CV to prevent freeing it upon assigning.
  * If this returns true you need to add a ref at the end of the modification for the return value. */
@@ -3918,6 +3879,50 @@ static bool set_return_value_dup_or_in_place(const zend_execute_data *execute_da
 		return false;
 	}
 }
+
+static zend_always_inline void php_array_replace_wrapper(INTERNAL_FUNCTION_PARAMETERS, int recursive) /* {{{ */
+{
+	zval *args = NULL;
+	zval *arg;
+	int argc, i;
+	HashTable *dest;
+
+	ZEND_PARSE_PARAMETERS_START(1, -1)
+		Z_PARAM_VARIADIC('+', args, argc)
+	ZEND_PARSE_PARAMETERS_END();
+
+
+	for (i = 0; i < argc; i++) {
+		zval *arg = args + i;
+
+		if (Z_TYPE_P(arg) != IS_ARRAY) {
+			zend_argument_type_error(i + 1, "must be of type array, %s given", zend_zval_value_name(arg));
+			RETURN_THROWS();
+		}
+	}
+
+	/* copy first array if necessary */
+	arg = args;
+	bool update_refcount = set_return_value_dup_or_in_place(execute_data, arg, return_value);
+	dest = Z_ARRVAL_P(return_value);
+
+	if (recursive) {
+		for (i = 1; i < argc; i++) {
+			arg = args + i;
+			php_array_replace_recursive(dest, Z_ARRVAL_P(arg));
+		}
+	} else {
+		for (i = 1; i < argc; i++) {
+			arg = args + i;
+			zend_hash_merge(dest, Z_ARRVAL_P(arg), zval_add_ref, 1);
+		}
+	}
+
+	if (update_refcount) {
+		GC_ADDREF(dest);
+	}
+}
+/* }}} */
 
 static zend_always_inline void php_array_merge_wrapper(INTERNAL_FUNCTION_PARAMETERS, int recursive) /* {{{ */
 {
