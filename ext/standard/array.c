@@ -3842,11 +3842,6 @@ static bool prepare_in_place_array_modify_if_possible(const zend_execute_data *e
 	}
 
 	if (refcount == 2) {
-		/* Potentially possible with fake frames during optimization */
-		if (UNEXPECTED(!execute_data->prev_execute_data)) {
-			return false;
-		}
-
 		const zend_op *call_opline = execute_data->prev_execute_data->opline;
 		const zend_op *next_opline = call_opline + 1;
 
