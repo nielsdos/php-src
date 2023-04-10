@@ -3869,7 +3869,7 @@ static bool prepare_in_place_array_modify_if_possible(const zend_execute_data *e
 	return true;
 }
 
-static bool set_return_value_dup_or_in_place(const zend_execute_data *execute_data, const zval *arg, zval *return_value)
+static bool set_return_value_array_dup_or_in_place(const zend_execute_data *execute_data, const zval *arg, zval *return_value)
 {
 	if (prepare_in_place_array_modify_if_possible(execute_data, arg)) {
 		RETVAL_ARR(Z_ARRVAL_P(arg));
@@ -3903,7 +3903,7 @@ static zend_always_inline void php_array_replace_wrapper(INTERNAL_FUNCTION_PARAM
 
 	/* copy first array if necessary */
 	arg = args;
-	bool update_refcount = set_return_value_dup_or_in_place(execute_data, arg, return_value);
+	bool update_refcount = set_return_value_array_dup_or_in_place(execute_data, arg, return_value);
 	dest = Z_ARRVAL_P(return_value);
 
 	if (recursive) {
@@ -4650,7 +4650,7 @@ PHP_FUNCTION(array_unique)
 
 	cmp = php_get_data_compare_func_unstable(sort_type, 0);
 
-	bool update_refcount = set_return_value_dup_or_in_place(execute_data, array, return_value);
+	bool update_refcount = set_return_value_array_dup_or_in_place(execute_data, array, return_value);
 
 	/* create and sort array with pointers to the target_hash buckets */
 	arTmp = pemalloc((Z_ARRVAL_P(array)->nNumOfElements + 1) * sizeof(struct bucketindex), GC_FLAGS(Z_ARRVAL_P(array)) & IS_ARRAY_PERSISTENT);
@@ -4955,7 +4955,7 @@ static void php_array_intersect(INTERNAL_FUNCTION_PARAMETERS, int behavior, int 
 
 	/* copy the argument array if necessary */
 	if (in_place) {
-		in_place = set_return_value_dup_or_in_place(execute_data, &args[0], return_value);
+		in_place = set_return_value_array_dup_or_in_place(execute_data, &args[0], return_value);
 	} else {
 		RETVAL_ARR(zend_array_dup(Z_ARRVAL(args[0])));
 	}
@@ -5351,7 +5351,7 @@ static void php_array_diff(INTERNAL_FUNCTION_PARAMETERS, int behavior, int data_
 
 	/* copy the argument array if necessary */
 	if (in_place) {
-		in_place = set_return_value_dup_or_in_place(execute_data, &args[0], return_value);
+		in_place = set_return_value_array_dup_or_in_place(execute_data, &args[0], return_value);
 	} else {
 		RETVAL_ARR(zend_array_dup(Z_ARRVAL(args[0])));
 	}
