@@ -4912,6 +4912,7 @@ static void php_array_intersect(INTERNAL_FUNCTION_PARAMETERS, int behavior, int 
 		if (Z_TYPE(args[i]) != IS_ARRAY) {
 			zend_argument_type_error(i + 1, "must be of type array, %s given", zend_zval_value_name(&args[i]));
 			arr_argc = i; /* only free up to i - 1 */
+			in_place = false;
 			goto out;
 		}
 		hash = Z_ARRVAL(args[i]);
@@ -5308,6 +5309,7 @@ static void php_array_diff(INTERNAL_FUNCTION_PARAMETERS, int behavior, int data_
 		if (Z_TYPE(args[i]) != IS_ARRAY) {
 			zend_argument_type_error(i + 1, "must be of type array, %s given", zend_zval_value_name(&args[i]));
 			arr_argc = i; /* only free up to i - 1 */
+			in_place = false;
 			goto out;
 		}
 		hash = Z_ARRVAL(args[i]);
