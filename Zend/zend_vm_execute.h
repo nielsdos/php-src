@@ -49802,6 +49802,25 @@ static ZEND_VM_HOT ZEND_OPCODE_HANDLER_RET ZEND_FASTCALL ZEND_SEND_VAR_EX_SIMPLE
 	ZEND_VM_NEXT_OPCODE();
 }
 
+static ZEND_VM_HOT ZEND_OPCODE_HANDLER_RET ZEND_FASTCALL ZEND_SEND_VAR_EX_SIMPLE_EXT_SPEC_CV_UNUSED_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
+{
+	USE_OPLINE
+	zval *varptr, *arg;
+	uint32_t arg_num = opline->op2.num;
+
+	if (QUICK_ARG_SHOULD_BE_SENT_BY_REF(EX(call)->func, arg_num)) {
+		ZEND_VM_TAIL_CALL(ZEND_SEND_REF_SPEC_CV_UNUSED_HANDLER(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU));
+	}
+
+	varptr = EX_VAR(opline->op1.var);
+	arg = ZEND_CALL_VAR(EX(call), opline->result.var);
+
+	ZVAL_COPY_VALUE(arg, varptr);
+	ZVAL_UNDEF(varptr);
+
+	ZEND_VM_NEXT_OPCODE();
+}
+
 static ZEND_OPCODE_HANDLER_RET ZEND_FASTCALL ZEND_DIV_SPEC_CV_CV_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 {
 	USE_OPLINE
@@ -56780,6 +56799,7 @@ ZEND_API void execute_ex(zend_execute_data *ex)
 			(void*)&&ZEND_SEND_VAR_EX_SIMPLE_SPEC_VAR_UNUSED_LABEL,
 			(void*)&&ZEND_NULL_LABEL,
 			(void*)&&ZEND_SEND_VAR_EX_SIMPLE_SPEC_CV_UNUSED_LABEL,
+			(void*)&&ZEND_SEND_VAR_EX_SIMPLE_EXT_SPEC_CV_UNUSED_LABEL,
 			(void*)&&ZEND_SEND_VAL_SIMPLE_SPEC_CONST_LABEL,
 			(void*)&&ZEND_SEND_VAL_EX_SIMPLE_SPEC_CONST_LABEL,
 			(void*)&&ZEND_FE_FETCH_R_SIMPLE_SPEC_VAR_CV_RETVAL_UNUSED_LABEL,
@@ -61126,6 +61146,10 @@ zend_leave_helper_SPEC_LABEL:
 				VM_TRACE(ZEND_SEND_VAR_EX_SIMPLE_SPEC_CV_UNUSED)
 				ZEND_SEND_VAR_EX_SIMPLE_SPEC_CV_UNUSED_HANDLER(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU);
 				HYBRID_BREAK();
+			HYBRID_CASE(ZEND_SEND_VAR_EX_SIMPLE_EXT_SPEC_CV_UNUSED):
+				VM_TRACE(ZEND_SEND_VAR_EX_SIMPLE_EXT_SPEC_CV_UNUSED)
+				ZEND_SEND_VAR_EX_SIMPLE_EXT_SPEC_CV_UNUSED_HANDLER(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU);
+				HYBRID_BREAK();
 			HYBRID_CASE(ZEND_DIV_SPEC_CV_CV):
 				VM_TRACE(ZEND_DIV_SPEC_CV_CV)
 				ZEND_DIV_SPEC_CV_CV_HANDLER(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU);
@@ -64889,6 +64913,7 @@ void zend_vm_init(void)
 		ZEND_SEND_VAR_EX_SIMPLE_SPEC_VAR_UNUSED_HANDLER,
 		ZEND_NULL_HANDLER,
 		ZEND_SEND_VAR_EX_SIMPLE_SPEC_CV_UNUSED_HANDLER,
+		ZEND_SEND_VAR_EX_SIMPLE_EXT_SPEC_CV_UNUSED_HANDLER,
 		ZEND_SEND_VAL_SIMPLE_SPEC_CONST_HANDLER,
 		ZEND_SEND_VAL_EX_SIMPLE_SPEC_CONST_HANDLER,
 		ZEND_FE_FETCH_R_SIMPLE_SPEC_VAR_CV_RETVAL_UNUSED_HANDLER,
@@ -64941,7 +64966,7 @@ void zend_vm_init(void)
 		1255,
 		1256 | SPEC_RULE_OP1,
 		1261 | SPEC_RULE_OP1,
-		3471,
+		3472,
 		1266 | SPEC_RULE_OP1,
 		1271 | SPEC_RULE_OP1,
 		1276 | SPEC_RULE_OP2,
@@ -65099,59 +65124,59 @@ void zend_vm_init(void)
 		2564,
 		2565,
 		2566,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
-		3471,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
+		3472,
 	};
 #if (ZEND_VM_KIND == ZEND_VM_KIND_HYBRID)
 	zend_opcode_handler_funcs = labels;
@@ -65528,17 +65553,19 @@ ZEND_API void ZEND_FASTCALL zend_vm_set_opcode_handler_ex(zend_op* op, uint32_t 
 			break;
 		case ZEND_SEND_VAL:
 			if (op->op1_type == IS_CONST && op->op2_type == IS_UNUSED && !Z_REFCOUNTED_P(RT_CONSTANT(op, op->op1))) {
-				spec = 3467;
+				spec = 3468;
 			}
 			break;
 		case ZEND_SEND_VAR_EX:
-			if (op->op2_type == IS_UNUSED && op->op2.num <= MAX_ARG_FLAG_NUM && (op1_info & (MAY_BE_UNDEF|MAY_BE_REF)) == 0) {
+			if (!op->extended_value && op->op2_type == IS_UNUSED && op->op2.num <= MAX_ARG_FLAG_NUM && (op1_info & (MAY_BE_UNDEF|MAY_BE_REF)) == 0) {
 				spec = 3462 | SPEC_RULE_OP1;
+			} else if (op->extended_value && op->op2.num <= MAX_ARG_FLAG_NUM /* extended_value implies here OP2 UNUSED and OP1 not UNDEF or REF */) {
+				spec = 3467;
 			}
 			break;
 		case ZEND_FE_FETCH_R:
 			if (op->op2_type == IS_CV && (op1_info & (MAY_BE_ANY|MAY_BE_REF)) == MAY_BE_ARRAY) {
-				spec = 3469 | SPEC_RULE_RETVAL;
+				spec = 3470 | SPEC_RULE_RETVAL;
 			}
 			break;
 		case ZEND_FETCH_DIM_R:
@@ -65551,7 +65578,7 @@ ZEND_API void ZEND_FASTCALL zend_vm_set_opcode_handler_ex(zend_op* op, uint32_t 
 			break;
 		case ZEND_SEND_VAL_EX:
 			if (op->op2_type == IS_UNUSED && op->op2.num <= MAX_ARG_FLAG_NUM && op->op1_type == IS_CONST && !Z_REFCOUNTED_P(RT_CONSTANT(op, op->op1))) {
-				spec = 3468;
+				spec = 3469;
 			}
 			break;
 		case ZEND_SEND_VAR:

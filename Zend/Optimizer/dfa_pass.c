@@ -1066,46 +1066,72 @@ static bool zend_dfa_try_to_replace_result(zend_op_array *op_array, zend_ssa *ss
 	return 0;
 }
 
-/* Sets a flag on SEND ops when a copy can be a avoided. */
-static void zend_dfa_optimize_send_copies(zend_op_array *op_array, zend_ssa *ssa, zend_call_info **call_map)
+static bool op_dominates(const zend_op_array *op_array, const zend_ssa *ssa, const zend_op *a, const zend_op *b)
 {
-	for (int v = 0; v < ssa->vars_count; v++) {
-		int var = ssa->vars[v].var;
-		if (var >= op_array->last_var) {
+	uint32_t a_block = ssa->cfg.map[a - op_array->opcodes];
+	uint32_t b_block = ssa->cfg.map[b - op_array->opcodes];
+	if (a_block == b_block) {
+		return a < b;
+	} else {
+		return dominates(ssa->cfg.blocks, a_block, b_block);
+	}
+}
+
+static bool op_dominates_all_uses(const zend_op_array *op_array, const zend_ssa *ssa, int start) {
+	int use;
+	FOREACH_USE(ssa->vars + ssa->ops[start].op1_def, use) {
+		if (!op_dominates(op_array, ssa, op_array->opcodes + start, op_array->opcodes + use)) {
+			return false;
+		}
+	} FOREACH_USE_END();
+	return true;
+}
+
+/* Sets a flag on SEND ops when a copy can be a avoided. */
+static void zend_dfa_optimize_send_copies(zend_op_array *op_array, const zend_ssa *ssa)
+{
+	/* func_get_args() etc could make the optimization observable */
+	if (ssa->cfg.flags & ZEND_FUNC_VARARG) {
+		return;
+	}
+
+	for (uint32_t i = 0; i < op_array->last; i++) {
+		const zend_op *opline = &op_array->opcodes[i];
+		if ((opline->opcode != ZEND_SEND_VAR && opline->opcode != ZEND_SEND_VAR_EX) || opline->op2_type != IS_UNUSED || opline->op1_type != IS_CV) {
 			continue;
 		}
 
-		uint32_t type = ssa->var_info[v].type;
-		/* Unsetting a CV is always fine if it gets overwritten afterwards. Since type inference often infers
-		 * very wide types, we are very loose in matching types. */
+		/* NULL must not be visible in backtraces */
+		int ssa_cv = ssa->ops[i].op1_use;
+		if (ssa->vars[ssa_cv].var < op_array->num_args) {
+			continue;
+		}
+
+		/* Unsetting a CV is always fine if it gets overwritten afterwards.
+		 * Since type inference often infers very wide types, we are very loose in matching types. */
+		uint32_t type = ssa->var_info[ssa_cv].type;
 		if ((type & (MAY_BE_REF|MAY_BE_UNDEF)) || !(type & MAY_BE_RC1) || !(type & (MAY_BE_STRING|MAY_BE_ARRAY))) {
 			continue;
 		}
 
-		int use = ssa->vars[v].use_chain;
-		if (use >= 0
-			&& (op_array->opcodes[use].opcode == ZEND_SEND_VAR || op_array->opcodes[use].opcode == ZEND_SEND_VAR_EX) // TODO
-			&& op_array->opcodes[use].op2_type == IS_UNUSED) {
-			int next_use = zend_ssa_next_use(ssa->ops, v, use);
-
-			/* The next use must be an assignment of the call result, immediately after the call such that the
-			 * unset variable can never be observed.
-			 * It is also safe to optimize if there are no indirect accesses through func_get_args() etc,
-			 * no more uses, and it is not part of a loop. */
-			if ((next_use < 0
-					&& var >= op_array->num_args /* NULL must not be visible in backtraces */
-					&& !(ssa->cfg.flags & ZEND_FUNC_VARARG)
-					&& !(ssa->cfg.blocks[ssa->cfg.map[use]].flags & ZEND_BB_LOOP_HEADER)
-					&& ssa->cfg.blocks[ssa->cfg.map[use]].loop_header == -1)
-				|| (next_use >= 0
-					&& op_array->opcodes[next_use].opcode == ZEND_ASSIGN
-					&& ssa->ops[next_use].op1_use == v
-					&& ssa->ops[next_use].op2_use >= 0
-					&& call_map[use]
-					&& call_map[use]->caller_call_opline + 1 == op_array->opcodes + next_use
-					&& ssa->ops[call_map[use]->caller_call_opline - op_array->opcodes].result_def == ssa->ops[next_use].op2_use)) {
-				ZEND_ASSERT(op_array->opcodes[use].extended_value == 0);
-				op_array->opcodes[use].extended_value = 1;
+		if (opline->opcode == ZEND_SEND_VAR) {
+			/* Check if the call dominates the assignment and the assignment dominates all the future uses of this SSA variable */
+			int next_use = ssa->ops[i].op1_use_chain;
+			if (next_use >= 0
+				&& op_array->opcodes[next_use].opcode == ZEND_ASSIGN
+				&& ssa->ops[next_use].op1_use == ssa_cv
+				&& ssa->ops[next_use].op2_use >= 0
+				&& op_dominates(op_array, ssa, opline, op_array->opcodes + next_use)) {
+				if (op_dominates_all_uses(op_array, ssa, next_use)) {
+					op_array->opcodes[i].extended_value = 1;
+					//fprintf(stderr, "yes optimize 1\n");
+				}
+			}
+		} else /* ZEND_SEND_VAR_EX */ {
+			ZEND_ASSERT(ssa->ops[i].op1_def != -1);
+			if (ssa->vars[ssa->ops[i].op1_def].no_val) {
+				op_array->opcodes[i].extended_value = 1;
+				//fprintf(stderr, "yes optimize 2\n");
 			}
 		}
 	}
@@ -1169,9 +1195,9 @@ void zend_dfa_optimize_op_array(zend_op_array *op_array, zend_optimizer_ctx *ctx
 #endif
 		}
 
-		/* Optimization should not be done on main because of globals. Pass depends on CFG & call graph. */
-		if (call_map && op_array->function_name) {
-			zend_dfa_optimize_send_copies(op_array, ssa, call_map);
+		/* Optimization should not be done on main because of globals. */
+		if (op_array->function_name) {
+			zend_dfa_optimize_send_copies(op_array, ssa);
 		}
 
 		for (v = op_array->last_var; v < ssa->vars_count; v++) {

@@ -18,18 +18,12 @@
 */
 
 #include "zend_compile.h"
+#include "zend_cfg.h"
 #include "zend_dfg.h"
 #include "zend_ssa.h"
 #include "zend_dump.h"
 #include "zend_inference.h"
 #include "Optimizer/zend_optimizer_internal.h"
-
-static bool dominates(const zend_basic_block *blocks, int a, int b) {
-	while (blocks[b].level > blocks[a].level) {
-		b = blocks[b].idom;
-	}
-	return a == b;
-}
 
 static bool will_rejoin(
 		const zend_cfg *cfg, const zend_dfg *dfg, const zend_basic_block *block,

@@ -120,6 +120,7 @@ void zend_cfg_remark_reachable_blocks(const zend_op_array *op_array, zend_cfg *c
 ZEND_API void zend_cfg_build_predecessors(zend_arena **arena, zend_cfg *cfg);
 ZEND_API void zend_cfg_compute_dominators_tree(const zend_op_array *op_array, zend_cfg *cfg);
 ZEND_API void zend_cfg_identify_loops(const zend_op_array *op_array, zend_cfg *cfg);
+bool dominates(const zend_basic_block *blocks, int a, int b);
 
 END_EXTERN_C()
 
