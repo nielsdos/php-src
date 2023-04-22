@@ -466,7 +466,10 @@ int zend_dfa_optimize_calls(zend_op_array *op_array, zend_ssa *ssa)
 							int var_num = ssa_op->op1_use;
 							zend_ssa_var *var = ssa->vars + var_num;
 
-							ZEND_ASSERT(ssa_op->op1_def < 0);
+							if (ssa_op->op1_def >= 0) {
+								zend_ssa_replace_op1_def_op1_use(ssa, ssa_op);
+							}
+
 							zend_ssa_unlink_use_chain(ssa, op_num, ssa_op->op1_use);
 							ssa_op->op1_use = -1;
 							ssa_op->op1_use_chain = -1;
@@ -1066,46 +1069,35 @@ static bool zend_dfa_try_to_replace_result(zend_op_array *op_array, zend_ssa *ss
 	return 0;
 }
 
-static bool op_dominates(const zend_op_array *op_array, const zend_ssa *ssa, const zend_op *a, const zend_op *b)
-{
-	uint32_t a_block = ssa->cfg.map[a - op_array->opcodes];
-	uint32_t b_block = ssa->cfg.map[b - op_array->opcodes];
-	if (a_block == b_block) {
-		return a < b;
-	} else {
-		return dominates(ssa->cfg.blocks, a_block, b_block);
-	}
-}
-
-static bool op_dominates_all_uses(const zend_op_array *op_array, const zend_ssa *ssa, int start) {
-	int use;
-	FOREACH_USE(ssa->vars + ssa->ops[start].op1_def, use) {
-		if (!op_dominates(op_array, ssa, op_array->opcodes + start, op_array->opcodes + use)) {
-			return false;
-		}
-	} FOREACH_USE_END();
-	return true;
-}
-
 /* Sets a flag on SEND ops when a copy can be a avoided. */
-static void zend_dfa_optimize_send_copies(zend_op_array *op_array, const zend_ssa *ssa)
+static void zend_dfa_optimize_send_copies(zend_op_array *op_array, zend_ssa *ssa)
 {
-	/* func_get_args() etc could make the optimization observable */
+	/* func_get_args(), indirect accesses and exceptions could make the optimization observable.
+	 * The latter two cases are already tested before applying the DFA pass. */
 	if (ssa->cfg.flags & ZEND_FUNC_VARARG) {
 		return;
 	}
 
 	for (uint32_t i = 0; i < op_array->last; i++) {
-		const zend_op *opline = &op_array->opcodes[i];
+		zend_op *opline = op_array->opcodes + i;
 		if ((opline->opcode != ZEND_SEND_VAR && opline->opcode != ZEND_SEND_VAR_EX) || opline->op2_type != IS_UNUSED || opline->op1_type != IS_CV) {
 			continue;
 		}
 
-		/* NULL must not be visible in backtraces */
-		int ssa_cv = ssa->ops[i].op1_use;
+		zend_ssa_op *ssa_op = ssa->ops + i;
+		int op1_def = ssa_op->op1_def;
+		if (op1_def == -1) {
+			continue;
+		}
+
+		int ssa_cv = ssa_op->op1_use;
+
+#if 0
+		/* Argument move must not be observable in backtraces */
 		if (ssa->vars[ssa_cv].var < op_array->num_args) {
 			continue;
 		}
+#endif
 
 		/* Unsetting a CV is always fine if it gets overwritten afterwards.
 		 * Since type inference often infers very wide types, we are very loose in matching types. */
@@ -1114,25 +1106,11 @@ static void zend_dfa_optimize_send_copies(zend_op_array *op_array, const zend_ss
 			continue;
 		}
 
-		if (opline->opcode == ZEND_SEND_VAR) {
-			/* Check if the call dominates the assignment and the assignment dominates all the future uses of this SSA variable */
-			int next_use = ssa->ops[i].op1_use_chain;
-			if (next_use >= 0
-				&& op_array->opcodes[next_use].opcode == ZEND_ASSIGN
-				&& ssa->ops[next_use].op1_use == ssa_cv
-				&& ssa->ops[next_use].op2_use >= 0
-				&& op_dominates(op_array, ssa, opline, op_array->opcodes + next_use)) {
-				if (op_dominates_all_uses(op_array, ssa, next_use)) {
-					op_array->opcodes[i].extended_value = 1;
-					//fprintf(stderr, "yes optimize 1\n");
-				}
-			}
-		} else /* ZEND_SEND_VAR_EX */ {
-			ZEND_ASSERT(ssa->ops[i].op1_def != -1);
-			if (ssa->vars[ssa->ops[i].op1_def].no_val) {
-				op_array->opcodes[i].extended_value = 1;
-				//fprintf(stderr, "yes optimize 2\n");
-			}
+		zend_ssa_var *ssa_var = ssa->vars + op1_def;
+
+		if (ssa_var->no_val && !ssa_var->alias) {
+			/* Flag will be used by VM type spec handler */
+			opline->extended_value = 1;
 		}
 	}
 }
@@ -1198,6 +1176,9 @@ void zend_dfa_optimize_op_array(zend_op_array *op_array, zend_optimizer_ctx *ctx
 		/* Optimization should not be done on main because of globals. */
 		if (op_array->function_name) {
 			zend_dfa_optimize_send_copies(op_array, ssa);
+#if ZEND_DEBUG_DFA
+			ssa_verify_integrity(op_array, ssa, "after optimize send copies");
+#endif
 		}
 
 		for (v = op_array->last_var; v < ssa->vars_count; v++) {

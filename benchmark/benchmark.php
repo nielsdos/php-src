@@ -13,12 +13,12 @@ function main() {
     global $storeResult;
 
     $data = [];
-    $data['Zend/bench.php'] = runBench(false);
+/*    $data['Zend/bench.php'] = runBench(false);
     $data['Zend/bench.php JIT'] = runBench(true);
     $data['Symfony Demo 2.2.3'] = runSymfonyDemo(false);
-    $data['Symfony Demo 2.2.3 JIT'] = runSymfonyDemo(true);
+    $data['Symfony Demo 2.2.3 JIT'] = runSymfonyDemo(true);*/
     $data['Wordpress 6.2'] = runWordpress(false);
-    $data['Wordpress 6.2 JIT'] = runWordpress(true);
+//    $data['Wordpress 6.2 JIT'] = runWordpress(true);
     $result = json_encode($data, JSON_PRETTY_PRINT) . "\n";
 
     fwrite(STDOUT, $result);
@@ -78,7 +78,7 @@ function runWordpress(bool $jit): array {
 
     // Warmup
     runPhpCommand([$dir . '/index.php'], $dir);
-    return runValgrindPhpCgiCommand([$dir . '/index.php'], cwd: $dir, jit: $jit, warmup: 50, repeat: 50);
+    return runValgrindPhpCgiCommand([$dir . '/index.php'], cwd: $dir, jit: $jit, warmup: 2, repeat: 2);
 }
 
 function runPhpCommand(array $args, ?string $cwd = null): ProcessResult {
@@ -97,11 +97,12 @@ function runValgrindPhpCgiCommand(
         'valgrind',
         '--tool=callgrind',
         '--dump-instr=yes',
-        '--callgrind-out-file=/dev/null',
+        //'--callgrind-out-file=/dev/null',
         '--',
         $phpCgi,
         '-T' . ($warmup ? $warmup . ',' : '') . $repeat,
         '-d max_execution_time=0',
+        '-c', '/run/media/niels/MoreData/php-src',
         '-d opcache.enable=1',
         '-d opcache.jit_buffer_size=' . ($jit ? '128M' : '0'),
         '-d opcache.validate_timestamps=0',
