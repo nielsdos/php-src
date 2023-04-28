@@ -1160,7 +1160,7 @@ PHP_FUNCTION(strtoupper)
 		Z_PARAM_STR(arg)
 	ZEND_PARSE_PARAMETERS_END();
 
-	RETURN_STR(zend_string_toupper(arg));
+	RETURN_STR(zend_string_toupper_ex_maybe_inplace(arg, false, zend_may_modify_string_in_place(arg)));
 }
 /* }}} */
 
@@ -1188,7 +1188,7 @@ PHP_FUNCTION(strtolower)
 		Z_PARAM_STR(str)
 	ZEND_PARSE_PARAMETERS_END();
 
-	RETURN_STR(zend_string_tolower(str));
+	RETURN_STR(zend_string_tolower_ex_maybe_inplace(str, false, zend_may_modify_string_in_place(str)));
 }
 /* }}} */
 

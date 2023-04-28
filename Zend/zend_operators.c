@@ -2877,7 +2877,21 @@ ZEND_API char* ZEND_FASTCALL zend_str_toupper_dup_ex(const char *source, size_t 
 }
 /* }}} */
 
-ZEND_API zend_string* ZEND_FASTCALL zend_string_tolower_ex(zend_string *str, bool persistent) /* {{{ */
+static zend_string* ZEND_FASTCALL zend_string_alloc_or_partial_dup(zend_string *str, bool persistent, bool inplace, const unsigned char *p)
+{
+	if (inplace) {
+		ZEND_ASSERT(!persistent);
+		zend_string_forget_hash_val(str);
+		GC_ADDREF(str);
+		return str;
+	} else {
+		zend_string *res = zend_string_alloc(ZSTR_LEN(str), persistent);
+		memcpy(ZSTR_VAL(res), ZSTR_VAL(str), p - (unsigned char *) ZSTR_VAL(str));
+		return res;
+	}
+}
+
+ZEND_API zend_string* ZEND_FASTCALL zend_string_tolower_ex_maybe_inplace(zend_string *str, bool persistent, bool inplace) /* {{{ */
 {
 	size_t length = ZSTR_LEN(str);
 	unsigned char *p = (unsigned char *) ZSTR_VAL(str);
@@ -2888,8 +2902,7 @@ ZEND_API zend_string* ZEND_FASTCALL zend_string_tolower_ex(zend_string *str, boo
 	while (p + BLOCKCONV_STRIDE <= end) {
 		BLOCKCONV_LOAD(p);
 		if (BLOCKCONV_FOUND()) {
-			zend_string *res = zend_string_alloc(length, persistent);
-			memcpy(ZSTR_VAL(res), ZSTR_VAL(str), p - (unsigned char *) ZSTR_VAL(str));
+			zend_string *res = zend_string_alloc_or_partial_dup(str, persistent, inplace, p);
 			unsigned char *q = (unsigned char*) ZSTR_VAL(res) + (p - (unsigned char*) ZSTR_VAL(str));
 
 			/* Lowercase the chunk we already compared. */
@@ -2909,8 +2922,7 @@ ZEND_API zend_string* ZEND_FASTCALL zend_string_tolower_ex(zend_string *str, boo
 
 	while (p < end) {
 		if (*p != zend_tolower_ascii(*p)) {
-			zend_string *res = zend_string_alloc(length, persistent);
-			memcpy(ZSTR_VAL(res), ZSTR_VAL(str), p - (unsigned char*) ZSTR_VAL(str));
+			zend_string *res = zend_string_alloc_or_partial_dup(str, persistent, inplace, p);
 
 			unsigned char *q = (unsigned char*) ZSTR_VAL(res) + (p - (unsigned char*) ZSTR_VAL(str));
 			while (p < end) {
@@ -2926,7 +2938,12 @@ ZEND_API zend_string* ZEND_FASTCALL zend_string_tolower_ex(zend_string *str, boo
 }
 /* }}} */
 
-ZEND_API zend_string* ZEND_FASTCALL zend_string_toupper_ex(zend_string *str, bool persistent) /* {{{ */
+ZEND_API zend_string* ZEND_FASTCALL zend_string_tolower_ex(zend_string *str, bool persistent)
+{
+	return zend_string_tolower_ex_maybe_inplace(str, persistent, false);
+}
+
+ZEND_API zend_string* ZEND_FASTCALL zend_string_toupper_ex_maybe_inplace(zend_string *str, bool persistent, bool inplace) /* {{{ */
 {
 	size_t length = ZSTR_LEN(str);
 	unsigned char *p = (unsigned char *) ZSTR_VAL(str);
@@ -2937,8 +2954,7 @@ ZEND_API zend_string* ZEND_FASTCALL zend_string_toupper_ex(zend_string *str, boo
 	while (p + BLOCKCONV_STRIDE <= end) {
 		BLOCKCONV_LOAD(p);
 		if (BLOCKCONV_FOUND()) {
-			zend_string *res = zend_string_alloc(length, persistent);
-			memcpy(ZSTR_VAL(res), ZSTR_VAL(str), p - (unsigned char *) ZSTR_VAL(str));
+			zend_string *res = zend_string_alloc_or_partial_dup(str, persistent, inplace, p);
 			unsigned char *q = (unsigned char *) ZSTR_VAL(res) + (p - (unsigned char *) ZSTR_VAL(str));
 
 			/* Uppercase the chunk we already compared. */
@@ -2958,8 +2974,7 @@ ZEND_API zend_string* ZEND_FASTCALL zend_string_toupper_ex(zend_string *str, boo
 
 	while (p < end) {
 		if (*p != zend_toupper_ascii(*p)) {
-			zend_string *res = zend_string_alloc(length, persistent);
-			memcpy(ZSTR_VAL(res), ZSTR_VAL(str), p - (unsigned char*) ZSTR_VAL(str));
+			zend_string *res = zend_string_alloc_or_partial_dup(str, persistent, inplace, p);
 
 			unsigned char *q = (unsigned char *) ZSTR_VAL(res) + (p - (unsigned char *) ZSTR_VAL(str));
 			while (p < end) {
@@ -2974,6 +2989,11 @@ ZEND_API zend_string* ZEND_FASTCALL zend_string_toupper_ex(zend_string *str, boo
 	return zend_string_copy(str);
 }
 /* }}} */
+
+ZEND_API zend_string* ZEND_FASTCALL zend_string_toupper_ex(zend_string *str, bool persistent)
+{
+	return zend_string_toupper_ex_maybe_inplace(str, persistent, false);
+}
 
 ZEND_API int ZEND_FASTCALL zend_binary_strcmp(const char *s1, size_t len1, const char *s2, size_t len2) /* {{{ */
 {
