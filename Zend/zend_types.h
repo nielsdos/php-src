@@ -1512,4 +1512,9 @@ static zend_always_inline bool zend_may_modify_arg_in_place(const zval *arg)
 	return Z_REFCOUNTED_P(arg) && !(GC_FLAGS(Z_COUNTED_P(arg)) & (GC_IMMUTABLE | GC_PERSISTENT)) && Z_REFCOUNT_P(arg) == 1;
 }
 
+static zend_always_inline bool zend_may_modify_string_in_place(const zend_string *arg)
+{
+	return !(GC_FLAGS(arg) & (GC_IMMUTABLE | GC_PERSISTENT)) && GC_REFCOUNT(arg) == 1;
+}
+
 #endif /* ZEND_TYPES_H */
