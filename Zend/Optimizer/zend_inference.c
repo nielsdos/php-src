@@ -1722,12 +1722,12 @@ static uint32_t get_ssa_alias_types(zend_ssa_alias_kind alias) {
 	}
 }
 
-#define UPDATE_SSA_TYPE(_type, _var)									\
+#define UPDATE_SSA_TYPE_EX(_type, _var, _propagate_any_on_ref)									\
 	do {																\
 		uint32_t __type = (_type) & ~MAY_BE_GUARD;						\
 		int __var = (_var);												\
 		if (__type & MAY_BE_REF) {										\
-			__type |= MAY_BE_RC1 | MAY_BE_RCN | MAY_BE_ANY | MAY_BE_ARRAY_KEY_ANY | MAY_BE_ARRAY_OF_ANY | MAY_BE_ARRAY_OF_REF; \
+			__type |= MAY_BE_RC1 | MAY_BE_RCN | (_propagate_any_on_ref ? (MAY_BE_ANY | MAY_BE_ARRAY_KEY_ANY | MAY_BE_ARRAY_OF_ANY | MAY_BE_ARRAY_OF_REF) : 0); \
 		}																\
 		if (__var >= 0) {												\
 			zend_ssa_var *__ssa_var = &ssa_vars[__var];					\
@@ -1760,6 +1760,8 @@ static uint32_t get_ssa_alias_types(zend_ssa_alias_kind alias) {
 			/*zend_bitset_excl(worklist, var);*/						\
 		}																\
 	} while (0)
+
+#define UPDATE_SSA_TYPE(_type, _var) UPDATE_SSA_TYPE_EX(_type, _var, true)
 
 #define UPDATE_SSA_OBJ_TYPE(_ce, _is_instanceof, var)				    \
 	do {                                                                \
@@ -3550,7 +3552,7 @@ static zend_always_inline zend_result _zend_update_type_info(
 				zend_class_entry *ce;
 				bool ce_is_instanceof;
 				tmp = zend_get_func_info(call_info, ssa, &ce, &ce_is_instanceof);
-				UPDATE_SSA_TYPE(tmp, ssa_op->result_def);
+				UPDATE_SSA_TYPE_EX(tmp, ssa_op->result_def, false);
 				if (ce) {
 					UPDATE_SSA_OBJ_TYPE(ce, ce_is_instanceof, ssa_op->result_def);
 				}
