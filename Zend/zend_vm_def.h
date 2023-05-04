@@ -1162,9 +1162,10 @@ ZEND_VM_HANDLER(27, ZEND_ASSIGN_DIM_OP, VAR|CV, CONST|TMPVAR|UNUSED|NEXT|CV, OP)
 	if (EXPECTED(Z_TYPE_P(container) == IS_ARRAY)) {
 ZEND_VM_C_LABEL(assign_dim_op_array):
 		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
-		if (UNEXPECTED(Z_ISREF_P(value) && Z_TYPE_P(Z_REFVAL_P(value)) == IS_ARRAY)) {
+		if (UNEXPECTED(Z_ISREF_P(value) && Z_TYPE_P(Z_REFVAL_P(value)) == IS_ARRAY && Z_ARRVAL_P(Z_REFVAL_P(value)) == Z_ARRVAL_P(container) && !(GC_FLAGS(Z_ARRVAL_P(container)) & GC_IMMUTABLE))) {
 			/* The binary OP would normally deref the reference, so an increase in RC would only be done later.
-			 * We need to do this here already to do a correct array separation in case the value is related to the array. */
+			 * We need to do this here already to do a correct array separation in case the value is related to the array.
+			 * The only case where this would be problematic is when the container and value are the same array. */
 			value_array = Z_ARR_P(Z_REFVAL_P(value));
 			GC_ADDREF(value_array);
 		} else {
