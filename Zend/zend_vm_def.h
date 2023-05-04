@@ -1154,7 +1154,7 @@ ZEND_VM_HANDLER(27, ZEND_ASSIGN_DIM_OP, VAR|CV, CONST|TMPVAR|UNUSED|NEXT|CV, OP)
 	zval *var_ptr;
 	zval *value, *container, *dim;
 	HashTable *ht;
-	zval value_copy;
+	zend_array *value_array;
 
 	SAVE_OPLINE();
 	container = GET_OP1_OBJ_ZVAL_PTR_PTR_UNDEF(BP_VAR_RW);
@@ -1162,14 +1162,13 @@ ZEND_VM_HANDLER(27, ZEND_ASSIGN_DIM_OP, VAR|CV, CONST|TMPVAR|UNUSED|NEXT|CV, OP)
 	if (EXPECTED(Z_TYPE_P(container) == IS_ARRAY)) {
 ZEND_VM_C_LABEL(assign_dim_op_array):
 		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
-		if (UNEXPECTED(Z_ISREF_P(value)) && Z_OPT_REFCOUNTED_P(Z_REFVAL_P(value))) {
+		if (UNEXPECTED(Z_ISREF_P(value) && Z_TYPE_P(Z_REFVAL_P(value)) == IS_ARRAY)) {
 			/* The binary OP would normally deref the reference, so an increase in RC would only be done later.
-			 * We need to do this here already to do a correct array separation in case the value is related to
-			 * the array. */
-			ZVAL_COPY(&value_copy, Z_REFVAL_P(value));
+			 * We need to do this here already to do a correct array separation in case the value is related to the array. */
+			value_array = Z_ARR_P(Z_REFVAL_P(value));
+			GC_ADDREF(value_array);
 		} else {
-			/* Have to do it this way because for types the compiler gives a bogus uninitialized value warning. */
-			Z_COUNTED(value_copy) = NULL;
+			value_array = NULL;
 		}
 		SEPARATE_ARRAY(container);
 		ht = Z_ARRVAL_P(container);
@@ -1202,8 +1201,8 @@ ZEND_VM_C_LABEL(assign_dim_op_new_array):
 				}
 			}
 			zend_binary_op(var_ptr, var_ptr, value OPLINE_CC);
-			if (UNEXPECTED(Z_COUNTED(value_copy))) {
-				i_zval_ptr_dtor(&value_copy);
+			if (UNEXPECTED(value_array)) {
+				GC_DTOR_NO_REF(value_array);
 			}
 		} while (0);
 
@@ -1245,7 +1244,7 @@ ZEND_VM_C_LABEL(assign_dim_op_new_array):
 				}
 			}
 			value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
-			Z_COUNTED(value_copy) = NULL;
+			value_array = NULL;
 			ZEND_VM_C_GOTO(assign_dim_op_new_array);
 		} else {
 			dim = GET_OP2_ZVAL_PTR(BP_VAR_R);
