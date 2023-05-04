@@ -1154,7 +1154,6 @@ ZEND_VM_HANDLER(27, ZEND_ASSIGN_DIM_OP, VAR|CV, CONST|TMPVAR|UNUSED|NEXT|CV, OP)
 	zval *var_ptr;
 	zval *value, *container, *dim;
 	HashTable *ht;
-	bool flag = false;
 	zval value_copy;
 
 	SAVE_OPLINE();
@@ -1164,9 +1163,9 @@ ZEND_VM_HANDLER(27, ZEND_ASSIGN_DIM_OP, VAR|CV, CONST|TMPVAR|UNUSED|NEXT|CV, OP)
 ZEND_VM_C_LABEL(assign_dim_op_array):
 		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
 		if (UNEXPECTED(Z_ISREF_P(value))) {
-			ZVAL_COPY_VALUE(&value_copy, Z_REFVAL_P(value));
-			Z_ADDREF_P(&value_copy);
-			flag = true;
+			ZVAL_COPY(&value_copy, Z_REFVAL_P(value));
+		} else {
+			ZVAL_UNDEF(&value_copy);
 		}
 		SEPARATE_ARRAY(container);
 		ht = Z_ARRVAL_P(container);
@@ -1201,7 +1200,7 @@ ZEND_VM_C_LABEL(assign_dim_op_new_array):
 				}
 			}
 			zend_binary_op(var_ptr, var_ptr, value OPLINE_CC);
-			if (flag) {
+			if (UNEXPECTED(Z_TYPE(value_copy) != IS_UNDEF)) {
 				i_zval_ptr_dtor(&value_copy);
 			}
 		} while (0);
@@ -1244,6 +1243,7 @@ ZEND_VM_C_LABEL(assign_dim_op_new_array):
 				}
 			}
 			value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
+			ZVAL_UNDEF(&value_copy);
 			ZEND_VM_C_GOTO(assign_dim_op_new_array);
 		} else {
 			dim = GET_OP2_ZVAL_PTR(BP_VAR_R);
