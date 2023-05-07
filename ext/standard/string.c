@@ -1160,7 +1160,7 @@ PHP_FUNCTION(strtoupper)
 		Z_PARAM_STR(arg)
 	ZEND_PARSE_PARAMETERS_END();
 
-	RETURN_STR(zend_string_toupper(arg));
+	RETURN_STR(zend_string_toupper_ex_maybe_inplace(arg, false, zend_may_modify_string_in_place(arg)));
 }
 /* }}} */
 
@@ -1188,7 +1188,7 @@ PHP_FUNCTION(strtolower)
 		Z_PARAM_STR(str)
 	ZEND_PARSE_PARAMETERS_END();
 
-	RETURN_STR(zend_string_tolower(str));
+	RETURN_STR(zend_string_tolower_ex_maybe_inplace(str, false, zend_may_modify_string_in_place(str)));
 }
 /* }}} */
 
@@ -2341,7 +2341,14 @@ static zend_string* php_ucfirst(zend_string *str)
 	if (r == ch) {
 		return zend_string_copy(str);
 	} else {
-		zend_string *s = zend_string_init(ZSTR_VAL(str), ZSTR_LEN(str), 0);
+		zend_string *s;
+		if (zend_may_modify_string_in_place(str)) {
+			s = str;
+			zend_string_forget_hash_val(s);
+			GC_ADDREF(s);
+		} else {
+			s = zend_string_init(ZSTR_VAL(str), ZSTR_LEN(str), false);
+		}
 		ZSTR_VAL(s)[0] = r;
 		return s;
 	}
@@ -2373,7 +2380,14 @@ static zend_string* php_lcfirst(zend_string *str)
 	if (r == ZSTR_VAL(str)[0]) {
 		return zend_string_copy(str);
 	} else {
-		zend_string *s = zend_string_init(ZSTR_VAL(str), ZSTR_LEN(str), 0);
+		zend_string *s;
+		if (zend_may_modify_string_in_place(str)) {
+			s = str;
+			zend_string_forget_hash_val(s);
+			GC_ADDREF(s);
+		} else {
+			s = zend_string_init(ZSTR_VAL(str), ZSTR_LEN(str), false);
+		}
 		ZSTR_VAL(s)[0] = r;
 		return s;
 	}
