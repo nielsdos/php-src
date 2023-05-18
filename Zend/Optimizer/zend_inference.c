@@ -38,7 +38,6 @@
 
 /* Whether to handle symbolic range constraints */
 #define SYM_RANGE
-#undef SYM_RANGE
 
 /* Whether to handle negative range constraints */
 /* Negative range inference is buggy, so disabled for now */
@@ -93,13 +92,21 @@
 			if (dfs[var2] < 0) { \
 				/* Need to come back from "recursion" */ \
 				zend_worklist_stack_push(&var_stack, var); \
+				zend_worklist_stack_push(&var_stack, use); \
+				ZEND_WORKLIST_STACK_PUSH_PTR(&var_stack, p); \
+				ZEND_WORKLIST_STACK_PUSH_PTR(&var_stack, sym_p); \
 				/* "Recurse" on next var */ \
 				var = var2; \
 				dfs[var] = *index; \
 				(*index)++; \
 				root[var] = var; \
+				use = ssa->vars[var].use_chain; \
+				p = ssa->vars[var].phi_use_chain; \
+				sym_p = ssa->vars[var].sym_use_chain; \
 				goto recurse; \
 			} \
+			/* Because the use, p, sym_p variables will remain the same from the last iteration,
+			 * this will correctly execute after coming back from the "recursion". */ \
 			if (ssa->vars[var2].scc < 0 && dfs[root[var]] >= dfs[root[var2]]) { \
 				root[var] = root[var2]; \
 			} \
@@ -166,18 +173,23 @@
 	} while (0)
 
 
-#define FOR_EACH_VAR_USAGE(_var, MACRO) \
+#define FOR_EACH_VAR_USAGE_EX(_var, MACRO) \
 	do { \
-		int use = ssa->vars[_var].use_chain; \
 		while (use >= 0) { \
 			FOR_EACH_DEFINED_VAR(use, MACRO); \
 			use = zend_ssa_next_use(ssa->ops, _var, use); \
 		} \
-		zend_ssa_phi *p = ssa->vars[_var].phi_use_chain; \
 		while (p) { \
 			MACRO(p->ssa_var); \
 			p = zend_ssa_next_use_phi(ssa, _var, p); \
 		} \
+	} while (0)
+
+#define FOR_EACH_VAR_USAGE(_var, MACRO) \
+	do { \
+		int use = ssa->vars[_var].use_chain; \
+		zend_ssa_phi *p = ssa->vars[_var].phi_use_chain; \
+		FOR_EACH_VAR_USAGE_EX(_var, MACRO); \
 	} while (0)
 
 static inline bool add_will_overflow(zend_long a, zend_long b) {
@@ -231,27 +243,54 @@ static void zend_ssa_check_scc_var_old(const zend_op_array *op_array, zend_ssa *
 }
 /* }}} */
 
+#if UINTPTR_MAX > 0xFFFFFFFF
+# define ZEND_WORKLIST_STACK_PUSH_PTR(stack, ptr) do { \
+		zend_worklist_stack_push(&var_stack, (intptr_t) (ptr)); \
+		zend_worklist_stack_push(&var_stack, (intptr_t) (ptr) >> 32); \
+	} while (0)
+# define ZEND_WORKLIST_STACK_POP_PTR(stack, res) do { \
+		intptr_t a = zend_worklist_stack_pop(&var_stack); \
+		intptr_t b = zend_worklist_stack_pop(&var_stack); \
+		res = (void *) ((a << 32) | b); \
+	} while (0)
+#else
+# define ZEND_WORKLIST_STACK_PUSH_PTR(stack, ptr) zend_worklist_stack_push(&var_stack, (intptr_t) (ptr))
+# define ZEND_WORKLIST_STACK_POP_PTR(stack, res) res = (void *) zend_worklist_stack_pop(&var_stack);
+#endif
+
 static void zend_ssa_check_scc_var_new(const zend_op_array *op_array, zend_ssa *ssa, int var, int *index, int *dfs, int *root, zend_worklist_stack *stack) /* {{{ */
 {
 	zend_worklist_stack var_stack;
 	ALLOCA_FLAG(var_stack_use_heap);
 	/* Manual recursion stack that tracks to which variable the recursion should "return" to.
 	 * This cannot be larger than the variable count because every time a variable is visited it is marked as such. */
-	ZEND_WORKLIST_STACK_ALLOCA(&var_stack, ssa->vars_count, var_stack_use_heap);
-
-	zend_worklist_stack_push(&var_stack, var);
+	ZEND_WORKLIST_STACK_ALLOCA(&var_stack, ssa->vars_count * (2 + sizeof(zend_ssa_phi *) / sizeof(int) * 2), var_stack_use_heap);
 
 	dfs[var] = *index;
 	(*index)++;
 	root[var] = var;
 
+	zend_worklist_stack_push(&var_stack, var);
+	zend_worklist_stack_push(&var_stack, ssa->vars[var].use_chain);
+	ZEND_WORKLIST_STACK_PUSH_PTR(&var_stack, ssa->vars[var].phi_use_chain);
+	ZEND_WORKLIST_STACK_PUSH_PTR(&var_stack, ssa->vars[var].sym_use_chain);
 	do {
+		const zend_ssa_phi *p, *sym_p;
+		ZEND_WORKLIST_STACK_POP_PTR(&var_stack, sym_p);
+		ZEND_WORKLIST_STACK_POP_PTR(&var_stack, p);
+		int use = zend_worklist_stack_pop(&var_stack);
 		var = zend_worklist_stack_pop(&var_stack);
 
 recurse:;
-		// TODO: support sym range
+		FOR_EACH_VAR_USAGE_EX(var, CHECK_SCC_VAR);
 
-		FOR_EACH_VAR_USAGE(var, CHECK_SCC_VAR); // TODO: prevent always starting from the start again
+#ifdef SYM_RANGE
+		/* Process symbolic control-flow constraints */
+		while (sym_p) {
+			CHECK_SCC_VAR(sym_p->ssa_var);
+			sym_p = sym_p->sym_use_chain;
+		}
+#endif
 
 		if (root[var] == var) {
 			ssa->vars[var].scc = ssa->sccs;
@@ -311,7 +350,7 @@ ZEND_API int zend_ssa_find_sccs(const zend_op_array *op_array, zend_ssa *ssa) /*
 	}
 	if (old_sccs != ssa->sccs) {
 		fflush(stdout);
-		fprintf(stderr,"%d %d\n", old_sccs, ssa->sccs);
+		fprintf(stderr,"old=%d new=%d\n", old_sccs, ssa->sccs);
 		ZEND_ASSERT(old_sccs == ssa->sccs);
 	}
 	for (int i = 0; i < ssa->vars_count; i++) {
