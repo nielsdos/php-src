@@ -38,6 +38,7 @@
 
 /* Whether to handle symbolic range constraints */
 #define SYM_RANGE
+#undef SYM_RANGE
 
 /* Whether to handle negative range constraints */
 /* Negative range inference is buggy, so disabled for now */
@@ -74,11 +75,31 @@
 	} \
 } while (0)
 
+#define CHECK_SCC_VAR_OLD(var2) \
+	do { \
+		if (!ssa->vars[var2].no_val) { \
+			if (dfs[var2] < 0) { \
+				zend_ssa_check_scc_var_old(op_array, ssa, var2, index, dfs, root, stack); \
+			} \
+			if (ssa->vars[var2].scc < 0 && dfs[root[var]] >= dfs[root[var2]]) { \
+				root[var] = root[var2]; \
+			} \
+		} \
+	} while (0)
+
 #define CHECK_SCC_VAR(var2) \
 	do { \
 		if (!ssa->vars[var2].no_val) { \
 			if (dfs[var2] < 0) { \
-				zend_ssa_check_scc_var(op_array, ssa, var2, index, dfs, root, stack); \
+				/* Need to come back from "recursion" */ \
+				zend_worklist_stack_push(&var_stack, var); \
+				/* "Recurse" on next var */ \
+				var = var2; \
+				/* Recursion case */ \
+				dfs[var] = *index; \
+				(*index)++; \
+				root[var] = var; \
+				goto recurse; \
 			} \
 			if (ssa->vars[var2].scc < 0 && dfs[root[var]] >= dfs[root[var2]]) { \
 				root[var] = root[var2]; \
@@ -148,13 +169,12 @@
 
 #define FOR_EACH_VAR_USAGE(_var, MACRO) \
 	do { \
-		zend_ssa_phi *p = ssa->vars[_var].phi_use_chain; \
 		int use = ssa->vars[_var].use_chain; \
 		while (use >= 0) { \
 			FOR_EACH_DEFINED_VAR(use, MACRO); \
 			use = zend_ssa_next_use(ssa->ops, _var, use); \
 		} \
-		p = ssa->vars[_var].phi_use_chain; \
+		zend_ssa_phi *p = ssa->vars[_var].phi_use_chain; \
 		while (p) { \
 			MACRO(p->ssa_var); \
 			p = zend_ssa_next_use_phi(ssa, _var, p); \
@@ -172,23 +192,23 @@ static inline bool sub_will_overflow(zend_long a, zend_long b) {
 }
 #endif
 
-static void zend_ssa_check_scc_var(const zend_op_array *op_array, zend_ssa *ssa, int var, int *index, int *dfs, int *root, zend_worklist_stack *stack) /* {{{ */
+static void zend_ssa_check_scc_var_old(const zend_op_array *op_array, zend_ssa *ssa, int var, int *index, int *dfs, int *root, zend_worklist_stack *stack) /* {{{ */
 {
 #ifdef SYM_RANGE
 	zend_ssa_phi *p;
 #endif
-
+// fprintf(stderr, "(old) enter %d\n", var);
 	dfs[var] = *index;
 	(*index)++;
 	root[var] = var;
 
-	FOR_EACH_VAR_USAGE(var, CHECK_SCC_VAR);
+	FOR_EACH_VAR_USAGE(var, CHECK_SCC_VAR_OLD);
 
 #ifdef SYM_RANGE
 	/* Process symbolic control-flow constraints */
 	p = ssa->vars[var].sym_use_chain;
 	while (p) {
-		CHECK_SCC_VAR(p->ssa_var);
+		CHECK_SCC_VAR_OLD(p->ssa_var);
 		p = p->sym_use_chain;
 	}
 #endif
@@ -204,9 +224,48 @@ static void zend_ssa_check_scc_var(const zend_op_array *op_array, zend_ssa *ssa,
 			ssa->vars[var2].scc = ssa->sccs;
 		}
 		ssa->sccs++;
+		//printf("(old) assign %d to %d\n", ssa->sccs, var);
 	} else {
 		zend_worklist_stack_push(stack, var);
+		//printf("(old) push %d (root[var]=%d, var=%d)\n", var, root[var], var);
 	}
+}
+/* }}} */
+
+static void zend_ssa_check_scc_var_new(const zend_op_array *op_array, zend_ssa *ssa, int var, int *index, int *dfs, int *root, zend_worklist_stack *stack) /* {{{ */
+{
+	zend_worklist_stack var_stack;
+	ALLOCA_FLAG(var_stack_use_heap);
+	/* Manual recursion stack that tracks to which variable the recursion should "return" to */
+	ZEND_WORKLIST_STACK_ALLOCA(&var_stack, ssa->vars_count, var_stack_use_heap);
+
+	zend_worklist_stack_push(&var_stack, var);
+
+	do {
+		var = zend_worklist_stack_pop(&var_stack);
+
+recurse:;
+		// TODO: support sym range
+
+		FOR_EACH_VAR_USAGE(var, CHECK_SCC_VAR); // TODO: prevent always starting from the start again
+
+		if (root[var] == var) {
+			ssa->vars[var].scc = ssa->sccs;
+			while (stack->len > 0) {
+				int var2 = zend_worklist_stack_peek(stack);
+				if (dfs[var2] <= dfs[var]) {
+					break;
+				}
+				zend_worklist_stack_pop(stack);
+				ssa->vars[var2].scc = ssa->sccs;
+			}
+			ssa->sccs++;
+		} else {
+			zend_worklist_stack_push(stack, var);
+		}
+	} while (var_stack.len > 0);
+
+	ZEND_WORKLIST_STACK_FREE_ALLOCA(&var_stack, var_stack_use_heap);
 }
 /* }}} */
 
@@ -227,8 +286,27 @@ ZEND_API int zend_ssa_find_sccs(const zend_op_array *op_array, zend_ssa *ssa) /*
 	/* Find SCCs using Tarjan's algorithm. */
 	for (j = 0; j < ssa->vars_count; j++) {
 		if (!ssa->vars[j].no_val && dfs[j] < 0) {
-			zend_ssa_check_scc_var(op_array, ssa, j, &index, dfs, root, &stack);
+			zend_ssa_check_scc_var_old(op_array, ssa, j, &index, dfs, root, &stack);
 		}
+	}
+
+	int old_sccs = ssa->sccs;
+	stack.len = 0;
+	ssa->sccs = 0;
+	index = 0;
+	memset(dfs, -1, sizeof(int)*ssa->vars_count);
+	for (int i = 0; i < ssa->vars_count; i++) {
+		ssa->vars[i].scc = -1;
+	}
+	for (j = 0; j < ssa->vars_count; j++) {
+		if (!ssa->vars[j].no_val && dfs[j] < 0) {
+			zend_ssa_check_scc_var_new(op_array, ssa, j, &index, dfs, root, &stack);
+		}
+	}
+	if (old_sccs != ssa->sccs) {
+		fflush(stdout);
+		fprintf(stderr,"%d %d\n", old_sccs, ssa->sccs);
+		ZEND_ASSERT(old_sccs == ssa->sccs);
 	}
 
 	/* Revert SCC order. This results in a topological order. */
