@@ -245,12 +245,12 @@ static void zend_ssa_check_scc_var_old(const zend_op_array *op_array, zend_ssa *
 
 #if UINTPTR_MAX > UINT32_MAX
 # define ZEND_WORKLIST_STACK_PUSH_PTR(stack, ptr) do { \
-		zend_worklist_stack_push(&var_stack, (uintptr_t) (ptr)); \
-		zend_worklist_stack_push(&var_stack, (uintptr_t) (ptr) >> 32); \
+		zend_worklist_stack_push(&var_stack, (uintptr_t) ptr); \
+		zend_worklist_stack_push(&var_stack, ((uintptr_t) (ptr)) >> 32); \
 	} while (0)
 # define ZEND_WORKLIST_STACK_POP_PTR(stack, res) do { \
-		uintptr_t a = zend_worklist_stack_pop(&var_stack); \
-		uintptr_t b = zend_worklist_stack_pop(&var_stack); \
+		uintptr_t a = (unsigned int) zend_worklist_stack_pop(&var_stack); \
+		uintptr_t b = (unsigned int) zend_worklist_stack_pop(&var_stack); \
 		res = (void *) ((a << 32) | b); \
 	} while (0)
 #else
