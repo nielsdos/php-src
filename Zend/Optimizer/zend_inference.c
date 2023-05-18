@@ -95,7 +95,6 @@
 				zend_worklist_stack_push(&var_stack, var); \
 				/* "Recurse" on next var */ \
 				var = var2; \
-				/* Recursion case */ \
 				dfs[var] = *index; \
 				(*index)++; \
 				root[var] = var; \
@@ -236,10 +235,15 @@ static void zend_ssa_check_scc_var_new(const zend_op_array *op_array, zend_ssa *
 {
 	zend_worklist_stack var_stack;
 	ALLOCA_FLAG(var_stack_use_heap);
-	/* Manual recursion stack that tracks to which variable the recursion should "return" to */
+	/* Manual recursion stack that tracks to which variable the recursion should "return" to.
+	 * This cannot be larger than the variable count because every time a variable is visited it is marked as such. */
 	ZEND_WORKLIST_STACK_ALLOCA(&var_stack, ssa->vars_count, var_stack_use_heap);
 
 	zend_worklist_stack_push(&var_stack, var);
+
+	dfs[var] = *index;
+	(*index)++;
+	root[var] = var;
 
 	do {
 		var = zend_worklist_stack_pop(&var_stack);
@@ -295,7 +299,9 @@ ZEND_API int zend_ssa_find_sccs(const zend_op_array *op_array, zend_ssa *ssa) /*
 	ssa->sccs = 0;
 	index = 0;
 	memset(dfs, -1, sizeof(int)*ssa->vars_count);
+	int *sccs1 = malloc(sizeof(int)*ssa->vars_count);
 	for (int i = 0; i < ssa->vars_count; i++) {
+		sccs1[i]=ssa->vars[i].scc;
 		ssa->vars[i].scc = -1;
 	}
 	for (j = 0; j < ssa->vars_count; j++) {
@@ -308,6 +314,10 @@ ZEND_API int zend_ssa_find_sccs(const zend_op_array *op_array, zend_ssa *ssa) /*
 		fprintf(stderr,"%d %d\n", old_sccs, ssa->sccs);
 		ZEND_ASSERT(old_sccs == ssa->sccs);
 	}
+	for (int i = 0; i < ssa->vars_count; i++) {
+		ZEND_ASSERT(sccs1[i]==ssa->vars[i].scc);
+	}
+	free(sccs1);
 
 	/* Revert SCC order. This results in a topological order. */
 	for (j = 0; j < ssa->vars_count; j++) {
