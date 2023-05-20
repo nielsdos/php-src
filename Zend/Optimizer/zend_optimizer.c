@@ -1505,16 +1505,73 @@ ZEND_API void zend_optimize_script(zend_script *script, zend_long optimization_l
 			}
 		}
 
+		/* Group all non-private methods first, they will be analyzed first, and their type inference info can be used
+		 * for private method arguments. */
+		int num_non_private_methods = 0;
+		uint32_t total_arg_count = 0;
+		zend_op_array **op_array_grouped = zend_arena_alloc(&ctx.arena, sizeof(zend_op_array *) * call_graph.op_arrays_count);
+		HashTable *op_array_to_arg_offset = zend_arena_alloc(&ctx.arena, sizeof(HashTable));
+		zend_hash_init(op_array_to_arg_offset, call_graph.op_arrays_count, NULL, NULL, false);
 		for (i = 0; i < call_graph.op_arrays_count; i++) {
-			func_info = ZEND_FUNC_INFO(call_graph.op_arrays[i]);
+			if (!(call_graph.op_arrays[i]->fn_flags & ZEND_ACC_PRIVATE)) {
+				num_non_private_methods++;
+			}
+			zval tmp;
+			ZVAL_LONG(&tmp, total_arg_count);
+			zend_hash_index_add_new(op_array_to_arg_offset, (zend_ulong) call_graph.op_arrays[i], &tmp);
+			total_arg_count += call_graph.op_arrays[i]->num_args;
+		}
+		uint32_t *arg_types = zend_arena_calloc(&ctx.arena, total_arg_count, sizeof(uint32_t));
+		int start_private_method_idx = num_non_private_methods;
+		int current_private_method_idx = start_private_method_idx;
+		for (i = 0; i < call_graph.op_arrays_count; i++) {
+			if (call_graph.op_arrays[i]->fn_flags & ZEND_ACC_PRIVATE) {
+				op_array_grouped[current_private_method_idx++] = call_graph.op_arrays[i];
+			} else {
+				op_array_grouped[--num_non_private_methods] = call_graph.op_arrays[i];
+			}
+		}
+
+		for (i = 0; i < start_private_method_idx/*call_graph.op_arrays_count*/; i++) {
+			func_info = ZEND_FUNC_INFO(op_array_grouped[i]);
 			if (func_info) {
-				if (zend_dfa_analyze_op_array(call_graph.op_arrays[i], &ctx, &func_info->ssa) == SUCCESS) {
+				if (zend_dfa_analyze_op_array(op_array_grouped[i], &ctx, &func_info->ssa, arg_types, op_array_to_arg_offset) == SUCCESS) {
 					func_info->flags = func_info->ssa.cfg.flags;
 				} else {
-					ZEND_SET_FUNC_INFO(call_graph.op_arrays[i], NULL);
+					ZEND_SET_FUNC_INFO(op_array_grouped[i], NULL);
 				}
 			}
 		}
+
+		for (i = 0; i < call_graph.op_arrays_count; i++) {
+			zend_op_array *op_array = call_graph.op_arrays[i];
+			const zval *arg_types_offset_zval = zend_hash_index_find(op_array_to_arg_offset, (zend_ulong) op_array);
+			uint32_t arg_types_offset = Z_LVAL_P(arg_types_offset_zval);
+
+			for (uint32_t arg = 0; arg < op_array->num_args; arg++) {
+				uint32_t inferred_type = arg_types[arg_types_offset + arg];
+				if (inferred_type != -1 && !ZEND_TYPE_IS_SET(op_array->arg_info[arg].type)) {
+					op_array->arg_info[arg].type.type_mask |= inferred_type;
+				}
+			}
+		}
+//TODO: dedup code...
+		for (i = start_private_method_idx; i < call_graph.op_arrays_count; i++) {
+			func_info = ZEND_FUNC_INFO(op_array_grouped[i]);
+			if (func_info) {
+				if (zend_dfa_analyze_op_array(op_array_grouped[i], &ctx, &func_info->ssa, arg_types, op_array_to_arg_offset) == SUCCESS) {
+					func_info->flags = func_info->ssa.cfg.flags;
+				} else {
+					ZEND_SET_FUNC_INFO(op_array_grouped[i], NULL);
+				}
+			}
+		}
+
+		for (i = 0; i < total_arg_count; i++) {
+			// printf("type %x\n", arg_types[i]);
+		}
+
+		zend_hash_destroy(op_array_to_arg_offset);
 
 		//TODO: perform inner-script inference???
 		for (i = 0; i < call_graph.op_arrays_count; i++) {

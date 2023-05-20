@@ -38,7 +38,7 @@
 # include "ssa_integrity.c"
 #endif
 
-zend_result zend_dfa_analyze_op_array(zend_op_array *op_array, zend_optimizer_ctx *ctx, zend_ssa *ssa)
+zend_result zend_dfa_analyze_op_array(zend_op_array *op_array, zend_optimizer_ctx *ctx, zend_ssa *ssa, uint32_t *arg_types, HashTable *op_array_to_arg_offset)
 {
 	uint32_t build_flags;
 
@@ -95,7 +95,7 @@ zend_result zend_dfa_analyze_op_array(zend_op_array *op_array, zend_optimizer_ct
 
 	zend_ssa_find_sccs(op_array, ssa);
 
-	if (zend_ssa_inference(&ctx->arena, op_array, ctx->script, ssa, ctx->optimization_level) == FAILURE) {
+	if (zend_ssa_inference(&ctx->arena, op_array, ctx->script, ssa, ctx->optimization_level, arg_types, op_array_to_arg_offset) == FAILURE) {
 		return FAILURE;
 	}
 
@@ -1708,7 +1708,7 @@ void zend_optimize_dfa(zend_op_array *op_array, zend_optimizer_ctx *ctx)
 	void *checkpoint = zend_arena_checkpoint(ctx->arena);
 	zend_ssa ssa;
 
-	if (zend_dfa_analyze_op_array(op_array, ctx, &ssa) == FAILURE) {
+	if (zend_dfa_analyze_op_array(op_array, ctx, &ssa, NULL, 0) == FAILURE) {
 		zend_arena_release(&ctx->arena, checkpoint);
 		return;
 	}

@@ -4462,7 +4462,7 @@ static void zend_mark_cv_references(const zend_op_array *op_array, const zend_sc
 	free_alloca(worklist,  use_heap);
 }
 
-ZEND_API zend_result zend_ssa_inference(zend_arena **arena, const zend_op_array *op_array, const zend_script *script, zend_ssa *ssa, zend_long optimization_level) /* {{{ */
+ZEND_API zend_result zend_ssa_inference(zend_arena **arena, const zend_op_array *op_array, const zend_script *script, zend_ssa *ssa, zend_long optimization_level, uint32_t *arg_types, HashTable *op_array_to_arg_offset) /* {{{ */
 {
 	zend_ssa_var_info *ssa_var_info;
 	int i;
@@ -4499,24 +4499,29 @@ ZEND_API zend_result zend_ssa_inference(zend_arena **arena, const zend_op_array 
 		return FAILURE;
 	}
 
-	// TODO: make this opt order-independent, otherwise this can break
-	if (op_array->scope) {
+	if (arg_types && op_array->scope) {
 		const zend_func_info *func_info = ZEND_FUNC_INFO(op_array);
 		if (func_info) {
-			// TODO: fixup dat als we de inference afbreken er geen foute informatie bestaat
 			for (zend_call_info *callee_info = func_info->callee_info; callee_info != NULL; callee_info = callee_info->next_callee) {
 				const zend_op_array *callee_op_array = &callee_info->callee_func->op_array;
+
+				/* Only support argument type inference for user functions. */
+				if (callee_op_array->type != ZEND_USER_FUNCTION) {
+					continue;
+				}
 				/* Private functions can only be called from the class itself, and cannot be overridden.
 				 * Therefore, we know which argument types they can receive at compile time. */
 				if (!(callee_op_array->fn_flags & ZEND_ACC_PRIVATE)) {
 					continue;
 				}
-				/* Only support argument type inference for user functions. */
-				if (callee_op_array->type != ZEND_USER_FUNCTION) {
-					continue;
-				}
+
+				const zval *arg_types_offset_zval = zend_hash_index_find(op_array_to_arg_offset, (zend_ulong) callee_op_array);
+				uint32_t arg_types_offset = Z_LVAL_P(arg_types_offset_zval);
+
 				/* Too complicated to handle here for now. */
 				if (callee_info->named_args || callee_info->num_args < callee_op_array->num_args || (callee_op_array->fn_flags & ZEND_ACC_VARIADIC)) {
+					/* If we already started inferring, clear those types. */
+					memset(arg_types + arg_types_offset, -1, callee_op_array->num_args * sizeof(uint32_t));
 					continue;
 				}
 				// fprintf(stderr, "callee info %p, %s\n", callee_info, callee_info->callee_func->common.function_name->val);
@@ -4537,13 +4542,15 @@ ZEND_API zend_result zend_ssa_inference(zend_arena **arena, const zend_op_array 
 						if (opline->op1_type == IS_CONST) {
 							type = 1 << Z_TYPE_P(CRT_CONSTANT(opline->op1));
 						} else {
-							ZEND_ASSERT(ssa_op->op1_use > -1);
-							// TODO: mask klopt?
 							/* Note: if this has an op1_def, it's for refcounting purposes. */
+							ZEND_ASSERT(ssa_op->op1_use > -1);
 							type = ssa->var_info[ssa_op->op1_use].type & _ZEND_TYPE_MAY_BE_MASK;
 						}
-						callee_op_array->arg_info[arg].type.type_mask |= type;
+						arg_types[arg_types_offset + arg] |= type;
 					}
+				} else {
+					/* If we already started inferring, clear those types. */
+					memset(arg_types + arg_types_offset, -1, callee_op_array->num_args * sizeof(uint32_t));
 				}
 			}
 		}
