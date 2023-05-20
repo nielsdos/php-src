@@ -4499,6 +4499,56 @@ ZEND_API zend_result zend_ssa_inference(zend_arena **arena, const zend_op_array 
 		return FAILURE;
 	}
 
+	// TODO: make this opt order-independent, otherwise this can break
+	if (op_array->scope) {
+		const zend_func_info *func_info = ZEND_FUNC_INFO(op_array);
+		if (func_info) {
+			// TODO: fixup dat als we de inference afbreken er geen foute informatie bestaat
+			for (zend_call_info *callee_info = func_info->callee_info; callee_info != NULL; callee_info = callee_info->next_callee) {
+				const zend_op_array *callee_op_array = &callee_info->callee_func->op_array;
+				/* Private functions can only be called from the class itself, and cannot be overridden.
+				 * Therefore, we know which argument types they can receive at compile time. */
+				if (!(callee_op_array->fn_flags & ZEND_ACC_PRIVATE)) {
+					continue;
+				}
+				/* Only support argument type inference for user functions. */
+				if (callee_op_array->type != ZEND_USER_FUNCTION) {
+					continue;
+				}
+				/* Too complicated to handle here for now. */
+				if (callee_info->named_args || callee_info->num_args < callee_op_array->num_args || (callee_op_array->fn_flags & ZEND_ACC_VARIADIC)) {
+					continue;
+				}
+				// fprintf(stderr, "callee info %p, %s\n", callee_info, callee_info->callee_func->common.function_name->val);
+
+				bool all_by_val = true;
+				for (uint32_t arg = 0; arg < callee_op_array->num_args && all_by_val; arg++) {
+					const zend_op *opline = callee_info->arg_info[arg].opline;
+					if (opline->opcode != ZEND_SEND_VAR && opline->opcode != ZEND_SEND_VAL) {
+						all_by_val = false;
+					}
+				}
+
+				if (all_by_val) {
+					for (uint32_t arg = 0; arg < callee_op_array->num_args; arg++) {
+						const zend_op *opline = callee_info->arg_info[arg].opline;
+						const zend_ssa_op *ssa_op = &ssa->ops[opline - op_array->opcodes];
+						uint32_t type;
+						if (opline->op1_type == IS_CONST) {
+							type = 1 << Z_TYPE_P(CRT_CONSTANT(opline->op1));
+						} else {
+							ZEND_ASSERT(ssa_op->op1_use > -1);
+							// TODO: mask klopt?
+							/* Note: if this has an op1_def, it's for refcounting purposes. */
+							type = ssa->var_info[ssa_op->op1_use].type & _ZEND_TYPE_MAY_BE_MASK;
+						}
+						callee_op_array->arg_info[arg].type.type_mask |= type;
+					}
+				}
+			}
+		}
+	}
+
 	return SUCCESS;
 }
 /* }}} */
