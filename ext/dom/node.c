@@ -769,6 +769,8 @@ int dom_node_text_content_write(dom_object *obj, zval *newval)
 		return FAILURE;
 	}
 
+	php_dom_invalidate_node_list_cache(nodep->doc);
+
 	if (nodep->type == XML_ELEMENT_NODE || nodep->type == XML_ATTRIBUTE_NODE) {
 		if (nodep->children) {
 			node_list_unlink(nodep->children);
@@ -885,6 +887,8 @@ PHP_METHOD(DOMNode, insertBefore)
 		childobj->document = intern->document;
 		php_libxml_increment_doc_ref((php_libxml_node_object *)childobj, NULL);
 	}
+
+	php_dom_invalidate_node_list_cache(parentp->doc);
 
 	if (ref != NULL) {
 		DOM_GET_OBJ(refp, ref, xmlNodePtr, refpobj);
@@ -1075,6 +1079,7 @@ PHP_METHOD(DOMNode, replaceChild)
 			nodep->doc->intSubset = (xmlDtd *) newchild;
 		}
 	}
+	php_dom_invalidate_node_list_cache(nodep->doc);
 	DOM_RET_OBJ(oldchild, &ret, intern);
 }
 /* }}} end dom_node_replace_child */
@@ -1116,6 +1121,7 @@ PHP_METHOD(DOMNode, removeChild)
 	}
 
 	xmlUnlinkNode(child);
+	php_dom_invalidate_node_list_cache(nodep->doc);
 	DOM_RET_OBJ(child, &ret, intern);
 }
 /* }}} end dom_node_remove_child */
@@ -1218,6 +1224,8 @@ PHP_METHOD(DOMNode, appendChild)
 	}
 
 	dom_reconcile_ns(nodep->doc, new_child);
+
+	php_dom_invalidate_node_list_cache(nodep->doc);
 
 	DOM_RET_OBJ(new_child, &ret, intern);
 }
@@ -1327,6 +1335,8 @@ PHP_METHOD(DOMNode, normalize)
 	}
 
 	DOM_GET_OBJ(nodep, id, xmlNodePtr, intern);
+
+	php_dom_invalidate_node_list_cache(nodep->doc);
 
 	dom_normalize(nodep);
 
@@ -1559,6 +1569,8 @@ static void dom_canonicalization(INTERNAL_FUNCTION_PARAMETERS, int mode) /* {{{ 
 		zend_throw_error(NULL, "Node must be associated with a document");
 		RETURN_THROWS();
 	}
+
+	php_dom_invalidate_node_list_cache(docp);
 
 	if (xpath_array == NULL) {
 		if (nodep->type != XML_DOCUMENT_NODE) {
