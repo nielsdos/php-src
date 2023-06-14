@@ -717,6 +717,11 @@ class ReflectionNamedType extends ReflectionType
     public function isBuiltin(): bool {}
 }
 
+class ReflectionRelativeClassType extends ReflectionNamedType
+{
+    public function resolveToNamedType(): ReflectionNamedType {}
+}
+
 class ReflectionUnionType extends ReflectionType
 {
     public function getTypes(): array {}

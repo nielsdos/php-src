@@ -1,5 +1,5 @@
 /* This is a generated file, edit the .stub.php file instead.
- * Stub hash: 75d10a475cce503d94bd8471764adf495f0ddd34 */
+ * Stub hash: 47f97c2523215f74452afc1ffa5775f9ac49cfda */
 
 ZEND_BEGIN_ARG_WITH_TENTATIVE_RETURN_TYPE_INFO_EX(arginfo_class_Reflection_getModifierNames, 0, 1, IS_ARRAY, 0)
 	ZEND_ARG_TYPE_INFO(0, modifiers, IS_LONG, 0)
@@ -478,6 +478,9 @@ ZEND_END_ARG_INFO()
 
 #define arginfo_class_ReflectionNamedType_isBuiltin arginfo_class_ReflectionFunctionAbstract_inNamespace
 
+ZEND_BEGIN_ARG_WITH_RETURN_OBJ_INFO_EX(arginfo_class_ReflectionRelativeClassType_resolveToNamedType, 0, 0, ReflectionNamedType, 0)
+ZEND_END_ARG_INFO()
+
 #define arginfo_class_ReflectionUnionType_getTypes arginfo_class_ReflectionFunctionAbstract_getClosureUsedVariables
 
 #define arginfo_class_ReflectionIntersectionType_getTypes arginfo_class_ReflectionFunctionAbstract_getClosureUsedVariables
@@ -792,6 +795,7 @@ ZEND_METHOD(ReflectionType, allowsNull);
 ZEND_METHOD(ReflectionType, __toString);
 ZEND_METHOD(ReflectionNamedType, getName);
 ZEND_METHOD(ReflectionNamedType, isBuiltin);
+ZEND_METHOD(ReflectionRelativeClassType, resolveToNamedType);
 ZEND_METHOD(ReflectionUnionType, getTypes);
 ZEND_METHOD(ReflectionIntersectionType, getTypes);
 ZEND_METHOD(ReflectionExtension, __construct);
@@ -1097,6 +1101,12 @@ static const zend_function_entry class_ReflectionType_methods[] = {
 static const zend_function_entry class_ReflectionNamedType_methods[] = {
 	ZEND_ME(ReflectionNamedType, getName, arginfo_class_ReflectionNamedType_getName, ZEND_ACC_PUBLIC)
 	ZEND_ME(ReflectionNamedType, isBuiltin, arginfo_class_ReflectionNamedType_isBuiltin, ZEND_ACC_PUBLIC)
+	ZEND_FE_END
+};
+
+
+static const zend_function_entry class_ReflectionRelativeClassType_methods[] = {
+	ZEND_ME(ReflectionRelativeClassType, resolveToNamedType, arginfo_class_ReflectionRelativeClassType_resolveToNamedType, ZEND_ACC_PUBLIC)
 	ZEND_FE_END
 };
 
@@ -1521,6 +1531,16 @@ static zend_class_entry *register_class_ReflectionNamedType(zend_class_entry *cl
 
 	INIT_CLASS_ENTRY(ce, "ReflectionNamedType", class_ReflectionNamedType_methods);
 	class_entry = zend_register_internal_class_ex(&ce, class_entry_ReflectionType);
+
+	return class_entry;
+}
+
+static zend_class_entry *register_class_ReflectionRelativeClassType(zend_class_entry *class_entry_ReflectionNamedType)
+{
+	zend_class_entry ce, *class_entry;
+
+	INIT_CLASS_ENTRY(ce, "ReflectionRelativeClassType", class_ReflectionRelativeClassType_methods);
+	class_entry = zend_register_internal_class_ex(&ce, class_entry_ReflectionNamedType);
 
 	return class_entry;
 }
