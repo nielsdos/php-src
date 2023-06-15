@@ -22,6 +22,6 @@ echo $aDOM->saveXML();
 ?>
 --EXPECT--
 <?xml version="1.0"?>
-<inner xmlns="http://php.net" xmlns:ns="http://php.net">
-<WATCH-MY-NAMESPACE xmlns=""/>
-</inner>
+<ns:inner xmlns="http://php.net" xmlns:ns="http://php.net">
+<ns:WATCH-MY-NAMESPACE xmlns=""/>
+</ns:inner>

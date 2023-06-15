@@ -1474,9 +1474,8 @@ static void dom_libxml_reconcile_ensure_namespaces_are_declared(xmlNodePtr nodep
 	/* Put on stack to avoid allocation.
 	 * Although libxml2 currently does not use this for the reconciliation, it still
 	 * makes sense to do this just in case libxml2's internal change in the future. */
-	//xmlDOMWrapCtxt dummy_ctxt = {0};
-	//xmlDOMWrapReconcileNamespaces(&dummy_ctxt, nodep, /* options */ 0);
-	xmlReconciliateNs(nodep->doc, nodep);
+	xmlDOMWrapCtxt dummy_ctxt = {0};
+	xmlDOMWrapReconcileNamespaces(&dummy_ctxt, nodep, /* options */ 0);
 }
 
 void dom_reconcile_ns(xmlDocPtr doc, xmlNodePtr nodep) /* {{{ */
