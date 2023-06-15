@@ -24,6 +24,6 @@ echo $bDOM->saveXML(), "\n";
 ?>
 --EXPECT--
 <?xml version="1.0"?>
-<B xmlns="http://example.com/A">
-<C xmlns="http://example.com/C" xmlns:default="http://example.com/Z"/>
+<B xmlns="http://example.com/A" xmlns:default="http://example.com/C">
+<default:C xmlns="http://example.com/C" xmlns:default="http://example.com/Z"/>
 </B>
