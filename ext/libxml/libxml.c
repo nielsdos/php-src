@@ -142,23 +142,32 @@ static void php_libxml_node_free(xmlNodePtr node)
 			case XML_ATTRIBUTE_NODE:
 				xmlFreeProp((xmlAttrPtr) node);
 				break;
-			case XML_ENTITY_DECL:
+			case XML_ENTITY_DECL: {
+				xmlEntityPtr entity = (xmlEntityPtr) node;
+				if (entity->orig != NULL) {
+					xmlFree((char *) entity->orig);
+					entity->orig = NULL;
+				}
+				xmlFreeNode(node);
+				break;
+			}
 			case XML_ELEMENT_DECL:
 			case XML_ATTRIBUTE_DECL:
 				break;
-			case XML_NOTATION_NODE:
-				/* These require special handling */
+			case XML_NOTATION_NODE: {
+				xmlEntityPtr entity = (xmlEntityPtr) node;
 				if (node->name != NULL) {
 					xmlFree((char *) node->name);
 				}
-				if (((xmlEntityPtr) node)->ExternalID != NULL) {
-					xmlFree((char *) ((xmlEntityPtr) node)->ExternalID);
+				if (entity->ExternalID != NULL) {
+					xmlFree((char *) entity->ExternalID);
 				}
-				if (((xmlEntityPtr) node)->SystemID != NULL) {
-					xmlFree((char *) ((xmlEntityPtr) node)->SystemID);
+				if (entity->SystemID != NULL) {
+					xmlFree((char *) entity->SystemID);
 				}
 				xmlFree(node);
 				break;
+			}
 			case XML_NAMESPACE_DECL:
 				if (node->ns) {
 					xmlFreeNs(node->ns);
@@ -179,12 +188,42 @@ PHP_LIBXML_API void php_libxml_node_free_list(xmlNodePtr node)
 	if (node != NULL) {
 		curnode = node;
 		while (curnode != NULL) {
+			/* If the _private field is set, there's still a userland reference somewhere. We'll delay freeing in this case. */
+			if (curnode->_private) {
+				xmlNodePtr next = curnode->next;
+				/* Must unlink such that freeing of the parent doesn't free this child. */
+				xmlUnlinkNode(curnode);
+				if (curnode->type == XML_ELEMENT_NODE) {
+					/* This ensures that namespace references in this subtree are defined within this subtree,
+					 * otherwise a use-after-free would be possible when the original namespace holder gets freed. */
+					xmlDOMWrapCtxt dummy_ctxt = {0};
+					xmlDOMWrapReconcileNamespaces(&dummy_ctxt, curnode, /* options */ 0);
+				}
+				/* Skip freeing */
+				curnode = next;
+				continue;
+			}
+
 			node = curnode;
 			switch (node->type) {
 				/* Skip property freeing for the following types */
 				case XML_NOTATION_NODE:
-				case XML_ENTITY_DECL:
 					break;
+				case XML_ENTITY_DECL: {
+					/* libxml2 has a bug where if you unlink an entity it'll only unlink it from the dtd if the
+					 * dtd is attached to the document. This works around the issue by inspecting the parent directly. */
+					xmlEntityPtr entity = (xmlEntityPtr) node;
+					xmlDtdPtr dtd = entity->parent;
+					if (dtd != NULL) {
+						if (xmlHashLookup(dtd->entities, entity->name) == entity) {
+							xmlHashRemoveEntry(dtd->entities, entity->name, NULL);
+						}
+						if (xmlHashLookup(dtd->pentities, entity->name) == entity) {
+							xmlHashRemoveEntry(dtd->pentities, entity->name, NULL);
+						}
+					}
+					break;
+				}
 				case XML_ENTITY_REF_NODE:
 					php_libxml_node_free_list((xmlNodePtr) node->properties);
 					break;
