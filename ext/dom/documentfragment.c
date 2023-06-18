@@ -100,14 +100,13 @@ PHP_METHOD(DOMDocumentFragment, append)
 	uint32_t argc;
 	zval *args, *id;
 	dom_object *intern;
-	xmlNode *context;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS(), "+", &args, &argc) == FAILURE) {
 		RETURN_THROWS();
 	}
 
 	id = ZEND_THIS;
-	DOM_GET_OBJ(context, id, xmlNodePtr, intern);
+	DOM_GET_INTERN(id, intern);
 
 	dom_parent_node_append(intern, args, argc);
 }
@@ -121,14 +120,13 @@ PHP_METHOD(DOMDocumentFragment, prepend)
 	uint32_t argc;
 	zval *args, *id;
 	dom_object *intern;
-	xmlNode *context;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS(), "+", &args, &argc) == FAILURE) {
 		RETURN_THROWS();
 	}
 
 	id = ZEND_THIS;
-	DOM_GET_OBJ(context, id, xmlNodePtr, intern);
+	DOM_GET_INTERN(id, intern);
 
 	dom_parent_node_prepend(intern, args, argc);
 }

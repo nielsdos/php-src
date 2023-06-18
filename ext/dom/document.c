@@ -773,7 +773,6 @@ Since:
 PHP_METHOD(DOMDocument, getElementsByTagName)
 {
 	zval *id;
-	xmlDocPtr docp;
 	size_t name_len;
 	dom_object *intern, *namednode;
 	char *name;
@@ -783,7 +782,7 @@ PHP_METHOD(DOMDocument, getElementsByTagName)
 		RETURN_THROWS();
 	}
 
-	DOM_GET_OBJ(docp, id, xmlDocPtr, intern);
+	DOM_GET_INTERN(id, intern);
 
 	php_dom_create_iterator(return_value, DOM_NODELIST);
 	namednode = Z_DOMOBJ_P(return_value);
@@ -983,7 +982,6 @@ Since: DOM Level 2
 PHP_METHOD(DOMDocument, getElementsByTagNameNS)
 {
 	zval *id;
-	xmlDocPtr docp;
 	size_t uri_len, name_len;
 	dom_object *intern, *namednode;
 	char *uri, *name;
@@ -993,7 +991,7 @@ PHP_METHOD(DOMDocument, getElementsByTagNameNS)
 		RETURN_THROWS();
 	}
 
-	DOM_GET_OBJ(docp, id, xmlDocPtr, intern);
+	DOM_GET_INTERN(id, intern);
 
 	php_dom_create_iterator(return_value, DOM_NODELIST);
 	namednode = Z_DOMOBJ_P(return_value);
@@ -2131,7 +2129,6 @@ PHP_METHOD(DOMDocument, saveHTML)
 PHP_METHOD(DOMDocument, registerNodeClass)
 {
 	zval *id;
-	xmlDoc *docp;
 	zend_class_entry *basece = dom_node_class_entry, *ce = NULL;
 	dom_object *intern;
 
@@ -2141,7 +2138,7 @@ PHP_METHOD(DOMDocument, registerNodeClass)
 	}
 
 	if (ce == NULL || instanceof_function(ce, basece)) {
-		DOM_GET_OBJ(docp, id, xmlDocPtr, intern);
+		DOM_GET_INTERN(id, intern);
 		dom_set_doc_classmap(intern->document, basece, ce);
 		RETURN_TRUE;
 	}
@@ -2158,14 +2155,13 @@ PHP_METHOD(DOMDocument, append)
 	uint32_t argc;
 	zval *args, *id;
 	dom_object *intern;
-	xmlNode *context;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS(), "+", &args, &argc) == FAILURE) {
 		RETURN_THROWS();
 	}
 
 	id = ZEND_THIS;
-	DOM_GET_OBJ(context, id, xmlNodePtr, intern);
+	DOM_GET_INTERN(id, intern);
 
 	dom_parent_node_append(intern, args, argc);
 }
@@ -2179,14 +2175,13 @@ PHP_METHOD(DOMDocument, prepend)
 	uint32_t argc;
 	zval *args, *id;
 	dom_object *intern;
-	xmlNode *context;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS(), "+", &args, &argc) == FAILURE) {
 		RETURN_THROWS();
 	}
 
 	id = ZEND_THIS;
-	DOM_GET_OBJ(context, id, xmlNodePtr, intern);
+	DOM_GET_INTERN(id, intern);
 
 	dom_parent_node_prepend(intern, args, argc);
 }
