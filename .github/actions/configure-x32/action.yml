@@ -18,6 +18,8 @@ runs:
             --enable-option-checking=fatal \
             --build=i686-pc-linux-gnu \
             --prefix=/usr \
+            --enable-address-sanitizer \
+            --enable-undefined-sanitizer \
             --enable-phpdbg \
             --enable-fpm \
             --enable-intl \
