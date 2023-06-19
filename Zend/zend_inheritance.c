@@ -1898,7 +1898,7 @@ static zend_class_entry *fixup_trait_scope(const zend_function *fn, zend_class_e
 	return fn->common.scope->ce_flags & ZEND_ACC_TRAIT ? ce : fn->common.scope;
 }
 
-static void zend_resolve_trait_relative_class_types(zend_type *type, const zend_class_entry *ce)
+static void zend_resolve_trait_relative_class_types(zend_type *type, /* const */ zend_class_entry *ce)
 {
 	/* Only built-in types */
 	if (!ZEND_TYPE_IS_COMPLEX(*type)) {
