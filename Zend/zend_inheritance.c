@@ -1918,7 +1918,8 @@ static void zend_resolve_trait_relative_class_types(zend_type *type, /* const */
 		}
 		if (ZEND_TYPE_IS_RELATIVE_SELF(*single_type)) {
 			zend_type resolved_type = (zend_type) ZEND_TYPE_INIT_CLASS(zend_string_copy(ce->name), /* allows_null */ false, /* extra_flags */ ZEND_TYPE_FULL_MASK(*single_type));
-			memcpy(single_type, &resolved_type, sizeof(zend_type));
+			/* Cannot use memcpy as we violate the restrict constraint of src and dest */
+			memmove(single_type, &resolved_type, sizeof(zend_type));
 		}
 		if (ZEND_TYPE_IS_RELATIVE_PARENT(*single_type)) {
 			if (!ce->parent) {
@@ -1927,7 +1928,8 @@ static void zend_resolve_trait_relative_class_types(zend_type *type, /* const */
 				return;
 			}
 			zend_type resolved_type = (zend_type) ZEND_TYPE_INIT_CLASS(zend_string_copy(ce->parent->name), /* allows_null */ false, /* extra_flags */ ZEND_TYPE_FULL_MASK(*single_type));
-			memcpy(single_type, &resolved_type, sizeof(zend_type));
+			/* Cannot use memcpy as we violate the restrict constraint of src and dest */
+			memmove(single_type, &resolved_type, sizeof(zend_type));
 		}
 	} ZEND_TYPE_FOREACH_END();
 }
