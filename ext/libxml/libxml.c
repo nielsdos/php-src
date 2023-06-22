@@ -103,6 +103,16 @@ zend_module_entry libxml_module_entry = {
 
 /* }}} */
 
+static void php_libxml_unlink_entity(void *data, void *table, const xmlChar *name)
+{
+	xmlEntityPtr entity = data;
+	if (entity->_private != NULL) {
+		if (xmlHashLookup(table, name) == entity) {
+			xmlHashRemoveEntry(table, name, NULL);
+		}
+	}
+}
+
 /* {{{ internal functions for interoperability */
 static int php_libxml_clear_object(php_libxml_node_object *object)
 {
@@ -138,12 +148,24 @@ static void php_libxml_node_free(xmlNodePtr node)
 		if (node->_private != NULL) {
 			((php_libxml_node_ptr *) node->_private)->node = NULL;
 		}
+		fprintf(stderr, "free on %d\n", node->type);
 		switch (node->type) {
 			case XML_ATTRIBUTE_NODE:
 				xmlFreeProp((xmlAttrPtr) node);
 				break;
+			/* libxml2 has a peculiarity where if you unlink an entity it'll only unlink it from the dtd if the
+			 * dtd is attached to the document. This works around the issue by inspecting the parent directly. */
 			case XML_ENTITY_DECL: {
 				xmlEntityPtr entity = (xmlEntityPtr) node;
+				xmlDtdPtr dtd = entity->parent;
+				if (dtd != NULL) {
+					if (xmlHashLookup(dtd->entities, entity->name) == entity) {
+						xmlHashRemoveEntry(dtd->entities, entity->name, NULL);
+					}
+					if (xmlHashLookup(dtd->pentities, entity->name) == entity) {
+						xmlHashRemoveEntry(dtd->pentities, entity->name, NULL);
+					}
+				}
 				if (entity->orig != NULL) {
 					xmlFree((char *) entity->orig);
 					entity->orig = NULL;
@@ -151,11 +173,14 @@ static void php_libxml_node_free(xmlNodePtr node)
 				xmlFreeNode(node);
 				break;
 			}
-			case XML_ELEMENT_DECL:
-			case XML_ATTRIBUTE_DECL:
-				break;
 			case XML_NOTATION_NODE: {
 				xmlEntityPtr entity = (xmlEntityPtr) node;
+				xmlDtdPtr dtd = entity->parent;
+				if (dtd != NULL) {
+					if (xmlHashLookup(dtd->notations, entity->name) == entity) {
+						xmlHashRemoveEntry(dtd->notations, entity->name, NULL);
+					}
+				}
 				if (node->name != NULL) {
 					xmlFree((char *) node->name);
 				}
@@ -168,6 +193,9 @@ static void php_libxml_node_free(xmlNodePtr node)
 				xmlFree(node);
 				break;
 			}
+			case XML_ELEMENT_DECL:
+			case XML_ATTRIBUTE_DECL:
+				break;
 			case XML_NAMESPACE_DECL:
 				if (node->ns) {
 					xmlFreeNs(node->ns);
@@ -175,6 +203,19 @@ static void php_libxml_node_free(xmlNodePtr node)
 				}
 				node->type = XML_ELEMENT_NODE;
 				ZEND_FALLTHROUGH;
+			case XML_DTD_NODE: {
+				xmlDtdPtr dtd = (xmlDtdPtr) node;
+				if (dtd->_private == NULL) {
+					// TODO: same for attributes etc?
+					// TODO: the reverse (so for the decls) should also be done...
+
+					/* There's no userland reference to the dtd,
+					 * but there might be entities referenced from userland. Unlink those. */
+					xmlHashScan(dtd->entities, php_libxml_unlink_entity, dtd->entities);
+					xmlHashScan(dtd->notations, php_libxml_unlink_entity, dtd->notations);
+				}
+				ZEND_FALLTHROUGH;
+			}
 			default:
 				xmlFreeNode(node);
 		}
@@ -187,13 +228,14 @@ PHP_LIBXML_API void php_libxml_node_free_list(xmlNodePtr node)
 
 	if (node != NULL) {
 		curnode = node;
+		fprintf(stderr, "free list on %d\n", node->type);
 		while (curnode != NULL) {
 			/* If the _private field is set, there's still a userland reference somewhere. We'll delay freeing in this case. */
 			if (curnode->_private) {
 				xmlNodePtr next = curnode->next;
 				/* Must unlink such that freeing of the parent doesn't free this child. */
 				xmlUnlinkNode(curnode);
-				if (curnode->type == XML_ELEMENT_NODE) {
+				if (curnode->type == XML_ELEMENT_NODE) { // TODO: & attribute?
 					/* This ensures that namespace references in this subtree are defined within this subtree,
 					 * otherwise a use-after-free would be possible when the original namespace holder gets freed. */
 					xmlDOMWrapCtxt dummy_ctxt = {0};
@@ -208,22 +250,8 @@ PHP_LIBXML_API void php_libxml_node_free_list(xmlNodePtr node)
 			switch (node->type) {
 				/* Skip property freeing for the following types */
 				case XML_NOTATION_NODE:
+				case XML_ENTITY_DECL:
 					break;
-				case XML_ENTITY_DECL: {
-					/* libxml2 has a bug where if you unlink an entity it'll only unlink it from the dtd if the
-					 * dtd is attached to the document. This works around the issue by inspecting the parent directly. */
-					xmlEntityPtr entity = (xmlEntityPtr) node;
-					xmlDtdPtr dtd = entity->parent;
-					if (dtd != NULL) {
-						if (xmlHashLookup(dtd->entities, entity->name) == entity) {
-							xmlHashRemoveEntry(dtd->entities, entity->name, NULL);
-						}
-						if (xmlHashLookup(dtd->pentities, entity->name) == entity) {
-							xmlHashRemoveEntry(dtd->pentities, entity->name, NULL);
-						}
-					}
-					break;
-				}
 				case XML_ENTITY_REF_NODE:
 					php_libxml_node_free_list((xmlNodePtr) node->properties);
 					break;

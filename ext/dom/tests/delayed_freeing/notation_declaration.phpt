@@ -11,13 +11,13 @@ $doc->loadXML(<<<'XML'
 <!NOTATION myNotation SYSTEM "test.dtd">
 ]>
 <container/>
-XML, LIBXML_NOENT);
+XML);
 $notation = $doc->doctype->notations[0];
-var_dump($notation->publicId, $notation->systemId);
+var_dump($notation->nodeName, $notation->publicId, $notation->systemId);
 $doc->removeChild($doc->doctype);
-var_dump($notation->publicId, $notation->systemId);
+var_dump($notation->nodeName, $notation->publicId, $notation->systemId);
 unset($doc);
-var_dump($notation->publicId, $notation->systemId);
+var_dump($notation->nodeName, $notation->publicId, $notation->systemId);
 ?>
 --EXPECT--
 string(0) ""
