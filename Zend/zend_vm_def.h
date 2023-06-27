@@ -2499,9 +2499,6 @@ ZEND_VM_C_LABEL(free_and_exit_assign_obj):
 	}
 	FREE_OP_DATA();
 ZEND_VM_C_LABEL(exit_assign_obj):
-	if (garbage) {
-		GC_DTOR_NO_REF(garbage);
-	}
 	FREE_OP2();
 	FREE_OP1();
 	/* assign_obj has two opcodes! */
@@ -2552,7 +2549,6 @@ ZEND_VM_HANDLER(23, ZEND_ASSIGN_DIM, VAR|CV, CONST|TMPVAR|UNUSED|NEXT|CV, SPEC(O
 	zval *value;
 	zval *variable_ptr;
 	zval *dim;
-	zend_refcounted *garbage = NULL;
 
 	SAVE_OPLINE();
 	orig_object_ptr = object_ptr = GET_OP1_ZVAL_PTR_PTR_UNDEF(BP_VAR_W);
@@ -2597,6 +2593,9 @@ ZEND_VM_C_LABEL(try_assign_dim_array):
 					Z_ADDREF_P(value);
 				}
 			}
+			if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
+				ZVAL_COPY(EX_VAR(opline->result.var), value);
+			}
 		} else {
 			dim = GET_OP2_ZVAL_PTR_UNDEF(BP_VAR_R);
 			if (OP2_TYPE == IS_CONST) {
@@ -2608,13 +2607,11 @@ ZEND_VM_C_LABEL(try_assign_dim_array):
 				ZEND_VM_C_GOTO(assign_dim_error);
 			}
 			value = GET_OP_DATA_ZVAL_PTR(BP_VAR_R);
-			value = zend_assign_to_variable_ex(variable_ptr, value, OP_DATA_TYPE, EX_USES_STRICT_TYPES(), &garbage);
-		}
-		if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
-			ZVAL_COPY(EX_VAR(opline->result.var), value);
-		}
-		if (garbage) {
-			GC_DTOR_NO_REF(garbage);
+			if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
+				value = zend_assign_to_variable_twice(variable_ptr, EX_VAR(opline->result.var), value, OP_DATA_TYPE, EX_USES_STRICT_TYPES());
+			} else {
+				value = zend_assign_to_variable(variable_ptr, value, OP_DATA_TYPE, EX_USES_STRICT_TYPES());
+			}
 		}
 	} else {
 		if (EXPECTED(Z_ISREF_P(object_ptr))) {
@@ -2709,14 +2706,10 @@ ZEND_VM_HANDLER(22, ZEND_ASSIGN, VAR|CV, CONST|TMP|VAR|CV, SPEC(RETVAL))
 	variable_ptr = GET_OP1_ZVAL_PTR_PTR_UNDEF(BP_VAR_W);
 
 	if (!ZEND_VM_SPEC || UNEXPECTED(RETURN_VALUE_USED(opline))) {
-		zend_refcounted *garbage = NULL;
-
-		value = zend_assign_to_variable_ex(variable_ptr, value, OP2_TYPE, EX_USES_STRICT_TYPES(), &garbage);
 		if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
-			ZVAL_COPY(EX_VAR(opline->result.var), value);
-		}
-		if (garbage) {
-			GC_DTOR_NO_REF(garbage);
+			value = zend_assign_to_variable_twice(variable_ptr, EX_VAR(opline->result.var), value, OP2_TYPE, EX_USES_STRICT_TYPES());
+		} else {
+			value = zend_assign_to_variable(variable_ptr, value, OP2_TYPE, EX_USES_STRICT_TYPES());
 		}
 	} else {
 		value = zend_assign_to_variable(variable_ptr, value, OP2_TYPE, EX_USES_STRICT_TYPES());
