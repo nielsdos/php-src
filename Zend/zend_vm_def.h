@@ -2499,6 +2499,9 @@ ZEND_VM_C_LABEL(free_and_exit_assign_obj):
 	}
 	FREE_OP_DATA();
 ZEND_VM_C_LABEL(exit_assign_obj):
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 	FREE_OP2();
 	FREE_OP1();
 	/* assign_obj has two opcodes! */

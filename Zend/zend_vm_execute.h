@@ -23421,6 +23421,9 @@ free_and_exit_assign_obj:
 	}
 
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 
 	zval_ptr_dtor_nogc(EX_VAR(opline->op1.var));
 	/* assign_obj has two opcodes! */
@@ -23552,6 +23555,9 @@ free_and_exit_assign_obj:
 	}
 	zval_ptr_dtor_nogc(EX_VAR((opline+1)->op1.var));
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 
 	zval_ptr_dtor_nogc(EX_VAR(opline->op1.var));
 	/* assign_obj has two opcodes! */
@@ -23683,6 +23689,9 @@ free_and_exit_assign_obj:
 	}
 	zval_ptr_dtor_nogc(EX_VAR((opline+1)->op1.var));
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 
 	zval_ptr_dtor_nogc(EX_VAR(opline->op1.var));
 	/* assign_obj has two opcodes! */
@@ -23814,6 +23823,9 @@ free_and_exit_assign_obj:
 	}
 
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 
 	zval_ptr_dtor_nogc(EX_VAR(opline->op1.var));
 	/* assign_obj has two opcodes! */
@@ -26305,6 +26317,9 @@ free_and_exit_assign_obj:
 	}
 
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 	zval_ptr_dtor_nogc(EX_VAR(opline->op2.var));
 	zval_ptr_dtor_nogc(EX_VAR(opline->op1.var));
 	/* assign_obj has two opcodes! */
@@ -26436,6 +26451,9 @@ free_and_exit_assign_obj:
 	}
 	zval_ptr_dtor_nogc(EX_VAR((opline+1)->op1.var));
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 	zval_ptr_dtor_nogc(EX_VAR(opline->op2.var));
 	zval_ptr_dtor_nogc(EX_VAR(opline->op1.var));
 	/* assign_obj has two opcodes! */
@@ -26567,6 +26585,9 @@ free_and_exit_assign_obj:
 	}
 	zval_ptr_dtor_nogc(EX_VAR((opline+1)->op1.var));
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 	zval_ptr_dtor_nogc(EX_VAR(opline->op2.var));
 	zval_ptr_dtor_nogc(EX_VAR(opline->op1.var));
 	/* assign_obj has two opcodes! */
@@ -26698,6 +26719,9 @@ free_and_exit_assign_obj:
 	}
 
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 	zval_ptr_dtor_nogc(EX_VAR(opline->op2.var));
 	zval_ptr_dtor_nogc(EX_VAR(opline->op1.var));
 	/* assign_obj has two opcodes! */
@@ -30569,6 +30593,9 @@ free_and_exit_assign_obj:
 	}
 
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 
 	zval_ptr_dtor_nogc(EX_VAR(opline->op1.var));
 	/* assign_obj has two opcodes! */
@@ -30700,6 +30727,9 @@ free_and_exit_assign_obj:
 	}
 	zval_ptr_dtor_nogc(EX_VAR((opline+1)->op1.var));
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 
 	zval_ptr_dtor_nogc(EX_VAR(opline->op1.var));
 	/* assign_obj has two opcodes! */
@@ -30831,6 +30861,9 @@ free_and_exit_assign_obj:
 	}
 	zval_ptr_dtor_nogc(EX_VAR((opline+1)->op1.var));
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 
 	zval_ptr_dtor_nogc(EX_VAR(opline->op1.var));
 	/* assign_obj has two opcodes! */
@@ -30962,6 +30995,9 @@ free_and_exit_assign_obj:
 	}
 
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 
 	zval_ptr_dtor_nogc(EX_VAR(opline->op1.var));
 	/* assign_obj has two opcodes! */
@@ -33182,6 +33218,9 @@ free_and_exit_assign_obj:
 	}
 
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 
 
 	/* assign_obj has two opcodes! */
@@ -33313,6 +33352,9 @@ free_and_exit_assign_obj:
 	}
 	zval_ptr_dtor_nogc(EX_VAR((opline+1)->op1.var));
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 
 
 	/* assign_obj has two opcodes! */
@@ -33444,6 +33486,9 @@ free_and_exit_assign_obj:
 	}
 	zval_ptr_dtor_nogc(EX_VAR((opline+1)->op1.var));
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 
 
 	/* assign_obj has two opcodes! */
@@ -33575,6 +33620,9 @@ free_and_exit_assign_obj:
 	}
 
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 
 
 	/* assign_obj has two opcodes! */
@@ -35202,6 +35250,9 @@ free_and_exit_assign_obj:
 	}
 
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 	zval_ptr_dtor_nogc(EX_VAR(opline->op2.var));
 
 	/* assign_obj has two opcodes! */
@@ -35333,6 +35384,9 @@ free_and_exit_assign_obj:
 	}
 	zval_ptr_dtor_nogc(EX_VAR((opline+1)->op1.var));
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 	zval_ptr_dtor_nogc(EX_VAR(opline->op2.var));
 
 	/* assign_obj has two opcodes! */
@@ -35464,6 +35518,9 @@ free_and_exit_assign_obj:
 	}
 	zval_ptr_dtor_nogc(EX_VAR((opline+1)->op1.var));
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 	zval_ptr_dtor_nogc(EX_VAR(opline->op2.var));
 
 	/* assign_obj has two opcodes! */
@@ -35595,6 +35652,9 @@ free_and_exit_assign_obj:
 	}
 
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 	zval_ptr_dtor_nogc(EX_VAR(opline->op2.var));
 
 	/* assign_obj has two opcodes! */
@@ -37680,6 +37740,9 @@ free_and_exit_assign_obj:
 	}
 
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 
 
 	/* assign_obj has two opcodes! */
@@ -37811,6 +37874,9 @@ free_and_exit_assign_obj:
 	}
 	zval_ptr_dtor_nogc(EX_VAR((opline+1)->op1.var));
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 
 
 	/* assign_obj has two opcodes! */
@@ -37942,6 +38008,9 @@ free_and_exit_assign_obj:
 	}
 	zval_ptr_dtor_nogc(EX_VAR((opline+1)->op1.var));
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 
 
 	/* assign_obj has two opcodes! */
@@ -38073,6 +38142,9 @@ free_and_exit_assign_obj:
 	}
 
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 
 
 	/* assign_obj has two opcodes! */
@@ -41942,6 +42014,9 @@ free_and_exit_assign_obj:
 	}
 
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 
 
 	/* assign_obj has two opcodes! */
@@ -42073,6 +42148,9 @@ free_and_exit_assign_obj:
 	}
 	zval_ptr_dtor_nogc(EX_VAR((opline+1)->op1.var));
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 
 
 	/* assign_obj has two opcodes! */
@@ -42204,6 +42282,9 @@ free_and_exit_assign_obj:
 	}
 	zval_ptr_dtor_nogc(EX_VAR((opline+1)->op1.var));
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 
 
 	/* assign_obj has two opcodes! */
@@ -42335,6 +42416,9 @@ free_and_exit_assign_obj:
 	}
 
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 
 
 	/* assign_obj has two opcodes! */
@@ -45761,6 +45845,9 @@ free_and_exit_assign_obj:
 	}
 
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 	zval_ptr_dtor_nogc(EX_VAR(opline->op2.var));
 
 	/* assign_obj has two opcodes! */
@@ -45892,6 +45979,9 @@ free_and_exit_assign_obj:
 	}
 	zval_ptr_dtor_nogc(EX_VAR((opline+1)->op1.var));
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 	zval_ptr_dtor_nogc(EX_VAR(opline->op2.var));
 
 	/* assign_obj has two opcodes! */
@@ -46023,6 +46113,9 @@ free_and_exit_assign_obj:
 	}
 	zval_ptr_dtor_nogc(EX_VAR((opline+1)->op1.var));
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 	zval_ptr_dtor_nogc(EX_VAR(opline->op2.var));
 
 	/* assign_obj has two opcodes! */
@@ -46154,6 +46247,9 @@ free_and_exit_assign_obj:
 	}
 
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 	zval_ptr_dtor_nogc(EX_VAR(opline->op2.var));
 
 	/* assign_obj has two opcodes! */
@@ -51098,6 +51194,9 @@ free_and_exit_assign_obj:
 	}
 
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 
 
 	/* assign_obj has two opcodes! */
@@ -51229,6 +51328,9 @@ free_and_exit_assign_obj:
 	}
 	zval_ptr_dtor_nogc(EX_VAR((opline+1)->op1.var));
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 
 
 	/* assign_obj has two opcodes! */
@@ -51360,6 +51462,9 @@ free_and_exit_assign_obj:
 	}
 	zval_ptr_dtor_nogc(EX_VAR((opline+1)->op1.var));
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 
 
 	/* assign_obj has two opcodes! */
@@ -51491,6 +51596,9 @@ free_and_exit_assign_obj:
 	}
 
 exit_assign_obj:
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
 
 
 	/* assign_obj has two opcodes! */
