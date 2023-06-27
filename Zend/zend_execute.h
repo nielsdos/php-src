@@ -187,7 +187,9 @@ static zend_always_inline zval* zend_assign_to_variable_twice(zval *variable_ptr
 
 			if (Z_ISREF_P(variable_ptr)) {
 				if (UNEXPECTED(ZEND_REF_HAS_TYPE_SOURCES(Z_REF_P(variable_ptr)))) {
-					return zend_assign_to_typed_ref(variable_ptr, value, value_type, strict);
+					value = zend_assign_to_typed_ref(variable_ptr, value, value_type, strict);
+					ZVAL_COPY(second_variable_ptr, value);
+					return value;
 				}
 
 				variable_ptr = Z_REFVAL_P(variable_ptr);
@@ -197,8 +199,8 @@ static zend_always_inline zval* zend_assign_to_variable_twice(zval *variable_ptr
 			}
 			garbage = Z_COUNTED_P(variable_ptr);
 			zend_copy_to_variable(variable_ptr, value, value_type);
-			ZVAL_COPY(second_variable_ptr, variable_ptr);
 			GC_DTOR_NO_REF(garbage);
+			ZVAL_COPY(second_variable_ptr, variable_ptr);
 			return variable_ptr;
 		}
 	} while (0);
