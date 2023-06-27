@@ -204,6 +204,7 @@ static zend_always_inline zval* zend_assign_to_variable_twice(zval *variable_ptr
 	} while (0);
 
 	zend_copy_to_variable(variable_ptr, value, value_type);
+	ZVAL_COPY(second_variable_ptr, variable_ptr); // TODO: can this be COPY_VALUE ?
 	return variable_ptr;
 }
 
