@@ -3624,6 +3624,7 @@ static zend_always_inline void i_zval_ptr_dtor_noref(zval *zval_ptr) {
 	}
 }
 
+// TODO: try to get rid of this copy by trying to merge everything to the _twice variant
 ZEND_API zval* zend_assign_to_typed_ref_ex(zval *variable_ptr, zval *orig_value, uint8_t value_type, bool strict, zend_refcounted **garbage_ptr)
 {
 	bool ret;
@@ -3659,14 +3660,47 @@ ZEND_API zval* zend_assign_to_typed_ref_ex(zval *variable_ptr, zval *orig_value,
 	return variable_ptr;
 }
 
+ZEND_API zval* zend_assign_to_typed_ref_twice(zval *variable_ptr, zval *orig_value, uint8_t value_type, bool strict, zval *extra_copy)
+{
+	bool ret;
+	zval value;
+	zend_refcounted *ref = NULL;
+
+	if (Z_ISREF_P(orig_value)) {
+		ref = Z_COUNTED_P(orig_value);
+		orig_value = Z_REFVAL_P(orig_value);
+	}
+
+	ZVAL_COPY(&value, orig_value);
+	ret = zend_verify_ref_assignable_zval(Z_REF_P(variable_ptr), &value, strict);
+	variable_ptr = Z_REFVAL_P(variable_ptr);
+	if (EXPECTED(ret)) {
+		if (UNEXPECTED(extra_copy)) {
+			ZVAL_COPY(extra_copy, &value);
+		}
+		if (Z_REFCOUNTED_P(variable_ptr)) {
+			GC_DTOR(Z_COUNTED_P(variable_ptr));
+		}
+		ZVAL_COPY_VALUE(variable_ptr, &value);
+	} else {
+		zval_ptr_dtor_nogc(&value);
+	}
+	if (value_type & (IS_VAR|IS_TMP_VAR)) {
+		if (UNEXPECTED(ref)) {
+			if (UNEXPECTED(GC_DELREF(ref) == 0)) {
+				zval_ptr_dtor(orig_value);
+				efree_size(ref, sizeof(zend_reference));
+			}
+		} else {
+			i_zval_ptr_dtor_noref(orig_value);
+		}
+	}
+	return variable_ptr;
+}
+
 ZEND_API zval* zend_assign_to_typed_ref(zval *variable_ptr, zval *orig_value, uint8_t value_type, bool strict)
 {
-	zend_refcounted *garbage = NULL;
-	zval *result = zend_assign_to_typed_ref_ex(variable_ptr, orig_value, value_type, strict, &garbage);
-	if (garbage) {
-		GC_DTOR_NO_REF(garbage);
-	}
-	return result;
+	return zend_assign_to_typed_ref_twice(variable_ptr, orig_value, value_type, strict, NULL);
 }
 
 ZEND_API bool ZEND_FASTCALL zend_verify_prop_assignable_by_ref_ex(const zend_property_info *prop_info, zval *orig_val, bool strict, zend_verify_prop_assignable_by_ref_context context) {
