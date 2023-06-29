@@ -1273,7 +1273,7 @@ static xmlDocPtr dom_document_parser(zval *id, int mode, char *source, size_t so
 			return NULL;
 		}
 		file_dest = _dom_get_valid_file_path(source, resolved_path, MAXPATHLEN);
-		printf("file_dest=%s\n", file_dest);
+		printf("file_dest=%s, %s\n", file_dest, xmlCanonicPath(file_dest));
 		if (file_dest) {
 			ctxt = xmlCreateFileParserCtxt(file_dest);
 		}
