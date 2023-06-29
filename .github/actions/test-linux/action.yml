@@ -40,7 +40,7 @@ runs:
           --offline \
           --show-diff \
           --show-slow 1000 \
-          --set-timeout 120
+          --set-timeout 120 ext/dom
     - uses: actions/upload-artifact@v3
       if: always() && inputs.testArtifacts != null
       with:
