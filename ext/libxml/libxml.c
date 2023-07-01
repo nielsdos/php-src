@@ -148,7 +148,7 @@ static void php_libxml_node_free(xmlNodePtr node)
 		if (node->_private != NULL) {
 			((php_libxml_node_ptr *) node->_private)->node = NULL;
 		}
-		fprintf(stderr, "free on %d\n", node->type);
+		//fprintf(stderr, "free on %d\n", node->type);
 		switch (node->type) {
 			case XML_ATTRIBUTE_NODE:
 				xmlFreeProp((xmlAttrPtr) node);
@@ -174,13 +174,8 @@ static void php_libxml_node_free(xmlNodePtr node)
 				break;
 			}
 			case XML_NOTATION_NODE: {
+				/* See create_notation(), these aren't regular XML_NOTATION_NODE, but entities in disguise... */
 				xmlEntityPtr entity = (xmlEntityPtr) node;
-				xmlDtdPtr dtd = entity->parent;
-				if (dtd != NULL) {
-					if (xmlHashLookup(dtd->notations, entity->name) == entity) {
-						xmlHashRemoveEntry(dtd->notations, entity->name, NULL);
-					}
-				}
 				if (node->name != NULL) {
 					xmlFree((char *) node->name);
 				}
@@ -212,7 +207,7 @@ static void php_libxml_node_free(xmlNodePtr node)
 					/* There's no userland reference to the dtd,
 					 * but there might be entities referenced from userland. Unlink those. */
 					xmlHashScan(dtd->entities, php_libxml_unlink_entity, dtd->entities);
-					xmlHashScan(dtd->notations, php_libxml_unlink_entity, dtd->notations);
+					/* No unlinking of notations, see remark above at case XML_NOTATION_NODE. */
 				}
 				ZEND_FALLTHROUGH;
 			}
@@ -228,7 +223,7 @@ PHP_LIBXML_API void php_libxml_node_free_list(xmlNodePtr node)
 
 	if (node != NULL) {
 		curnode = node;
-		fprintf(stderr, "free list on %d\n", node->type);
+		//fprintf(stderr, "free list on %d\n", node->type);
 		while (curnode != NULL) {
 			/* If the _private field is set, there's still a userland reference somewhere. We'll delay freeing in this case. */
 			if (curnode->_private) {
