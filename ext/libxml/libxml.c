@@ -142,13 +142,27 @@ static void php_libxml_unregister_node(xmlNodePtr nodep)
 	}
 }
 
+/* Workaround for libxml2 peculiarity */
+static void php_libxml_unlink_entity_decl(xmlEntityPtr entity)
+{
+	xmlDtdPtr dtd = entity->parent;
+	if (dtd != NULL) {
+		if (xmlHashLookup(dtd->entities, entity->name) == entity) {
+			xmlHashRemoveEntry(dtd->entities, entity->name, NULL);
+		}
+		if (xmlHashLookup(dtd->pentities, entity->name) == entity) {
+			xmlHashRemoveEntry(dtd->pentities, entity->name, NULL);
+		}
+	}
+}
+
 static void php_libxml_node_free(xmlNodePtr node)
 {
 	if(node) {
 		if (node->_private != NULL) {
 			((php_libxml_node_ptr *) node->_private)->node = NULL;
 		}
-		//fprintf(stderr, "free on %d\n", node->type);
+		// fprintf(stderr, "free on %d (node=%p)\n", node->type, node);
 		switch (node->type) {
 			case XML_ATTRIBUTE_NODE:
 				xmlFreeProp((xmlAttrPtr) node);
@@ -157,15 +171,7 @@ static void php_libxml_node_free(xmlNodePtr node)
 			 * dtd is attached to the document. This works around the issue by inspecting the parent directly. */
 			case XML_ENTITY_DECL: {
 				xmlEntityPtr entity = (xmlEntityPtr) node;
-				xmlDtdPtr dtd = entity->parent;
-				if (dtd != NULL) {
-					if (xmlHashLookup(dtd->entities, entity->name) == entity) {
-						xmlHashRemoveEntry(dtd->entities, entity->name, NULL);
-					}
-					if (xmlHashLookup(dtd->pentities, entity->name) == entity) {
-						xmlHashRemoveEntry(dtd->pentities, entity->name, NULL);
-					}
-				}
+				php_libxml_unlink_entity_decl(entity);
 				if (entity->orig != NULL) {
 					xmlFree((char *) entity->orig);
 					entity->orig = NULL;
@@ -199,20 +205,21 @@ static void php_libxml_node_free(xmlNodePtr node)
 				node->type = XML_ELEMENT_NODE;
 				xmlFreeNode(node);
 				break;
-			case XML_DTD_NODE: {
-				xmlDtdPtr dtd = (xmlDtdPtr) node;
-				if (dtd->_private == NULL) {
-					// TODO: same for attributes etc?
-					// TODO: the reverse (so for the decls) should also be done...
-
-					/* There's no userland reference to the dtd,
-					 * but there might be entities referenced from userland. Unlink those. */
-					xmlHashScan(dtd->entities, php_libxml_unlink_entity, dtd->entities);
-					xmlHashScan(dtd->pentities, php_libxml_unlink_entity, dtd->pentities);
-					/* No unlinking of notations, see remark above at case XML_NOTATION_NODE. */
-				}
-				ZEND_FALLTHROUGH;
-			}
+			//case XML_DTD_NODE: {
+			//	xmlDtdPtr dtd = (xmlDtdPtr) node;
+			//	// fprintf(stderr,"dtd private %p\n", dtd->_private);
+			//	if (dtd->_private == NULL) {
+			//		// TODO: same for attributes etc?
+			//		// TODO: the reverse (so for the decls) should also be done...
+//
+			//		/* There's no userland reference to the dtd,
+			//		 * but there might be entities referenced from userland. Unlink those. */
+			//		xmlHashScan(dtd->entities, php_libxml_unlink_entity, dtd->entities);
+			//		xmlHashScan(dtd->pentities, php_libxml_unlink_entity, dtd->pentities);
+			//		/* No unlinking of notations, see remark above at case XML_NOTATION_NODE. */
+			//	}
+			//	ZEND_FALLTHROUGH;
+			//}
 			default:
 				xmlFreeNode(node);
 				break;
@@ -226,7 +233,7 @@ PHP_LIBXML_API void php_libxml_node_free_list(xmlNodePtr node)
 
 	if (node != NULL) {
 		curnode = node;
-		//fprintf(stderr, "free list on %d\n", node->type);
+		// fprintf(stderr, "free list on %d (node=%p)\n", node->type, node);
 		while (curnode != NULL) {
 			/* If the _private field is set, there's still a userland reference somewhere. We'll delay freeing in this case. */
 			if (curnode->_private) {
@@ -248,7 +255,9 @@ PHP_LIBXML_API void php_libxml_node_free_list(xmlNodePtr node)
 			switch (node->type) {
 				/* Skip property freeing for the following types */
 				case XML_NOTATION_NODE:
+					break;
 				case XML_ENTITY_DECL:
+					php_libxml_unlink_entity_decl((xmlEntityPtr) curnode);
 					break;
 				case XML_ENTITY_REF_NODE:
 					php_libxml_node_free_list((xmlNodePtr) node->properties);
