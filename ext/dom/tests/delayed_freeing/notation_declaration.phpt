@@ -20,9 +20,12 @@ unset($doc);
 var_dump($notation->nodeName, $notation->publicId, $notation->systemId);
 ?>
 --EXPECT--
+string(10) "myNotation"
 string(0) ""
 string(8) "test.dtd"
+string(10) "myNotation"
 string(0) ""
 string(8) "test.dtd"
+string(10) "myNotation"
 string(0) ""
 string(8) "test.dtd"
