@@ -257,7 +257,7 @@ PHP_LIBXML_API void php_libxml_node_free_list(xmlNodePtr node)
 				case XML_NOTATION_NODE:
 					break;
 				case XML_ENTITY_DECL:
-					php_libxml_unlink_entity_decl((xmlEntityPtr) curnode);
+					php_libxml_unlink_entity_decl((xmlEntityPtr) node);
 					break;
 				case XML_ENTITY_REF_NODE:
 					php_libxml_node_free_list((xmlNodePtr) node->properties);
