@@ -197,7 +197,8 @@ static void php_libxml_node_free(xmlNodePtr node)
 					node->ns = NULL;
 				}
 				node->type = XML_ELEMENT_NODE;
-				ZEND_FALLTHROUGH;
+				xmlFreeNode(node);
+				break;
 			case XML_DTD_NODE: {
 				xmlDtdPtr dtd = (xmlDtdPtr) node;
 				if (dtd->_private == NULL) {
@@ -207,12 +208,14 @@ static void php_libxml_node_free(xmlNodePtr node)
 					/* There's no userland reference to the dtd,
 					 * but there might be entities referenced from userland. Unlink those. */
 					xmlHashScan(dtd->entities, php_libxml_unlink_entity, dtd->entities);
+					xmlHashScan(dtd->pentities, php_libxml_unlink_entity, dtd->pentities);
 					/* No unlinking of notations, see remark above at case XML_NOTATION_NODE. */
 				}
 				ZEND_FALLTHROUGH;
 			}
 			default:
 				xmlFreeNode(node);
+				break;
 		}
 	}
 }
