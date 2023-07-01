@@ -103,15 +103,15 @@ zend_module_entry libxml_module_entry = {
 
 /* }}} */
 
-static void php_libxml_unlink_entity(void *data, void *table, const xmlChar *name)
-{
-	xmlEntityPtr entity = data;
-	if (entity->_private != NULL) {
-		if (xmlHashLookup(table, name) == entity) {
-			xmlHashRemoveEntry(table, name, NULL);
-		}
-	}
-}
+// static void php_libxml_unlink_entity(void *data, void *table, const xmlChar *name)
+// {
+	// xmlEntityPtr entity = data;
+	// if (entity->_private != NULL) {
+		// if (xmlHashLookup(table, name) == entity) {
+			// xmlHashRemoveEntry(table, name, NULL);
+		// }
+	// }
+// }
 
 /* {{{ internal functions for interoperability */
 static int php_libxml_clear_object(php_libxml_node_object *object)
