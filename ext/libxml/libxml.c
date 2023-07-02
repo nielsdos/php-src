@@ -162,7 +162,6 @@ static void php_libxml_node_free(xmlNodePtr node)
 		if (node->_private != NULL) {
 			((php_libxml_node_ptr *) node->_private)->node = NULL;
 		}
-		// fprintf(stderr, "free on %d (node=%p)\n", node->type, node);
 		switch (node->type) {
 			case XML_ATTRIBUTE_NODE:
 				xmlFreeProp((xmlAttrPtr) node);
@@ -229,7 +228,6 @@ PHP_LIBXML_API void php_libxml_node_free_list(xmlNodePtr node)
 
 	if (node != NULL) {
 		curnode = node;
-		// fprintf(stderr, "free list on %d (node=%p)\n", node->type, node);
 		while (curnode != NULL) {
 			/* If the _private field is set, there's still a userland reference somewhere. We'll delay freeing in this case. */
 			if (curnode->_private) {
