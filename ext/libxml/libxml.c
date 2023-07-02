@@ -103,15 +103,15 @@ zend_module_entry libxml_module_entry = {
 
 /* }}} */
 
-// static void php_libxml_unlink_entity(void *data, void *table, const xmlChar *name)
-// {
-	// xmlEntityPtr entity = data;
-	// if (entity->_private != NULL) {
-		// if (xmlHashLookup(table, name) == entity) {
-			// xmlHashRemoveEntry(table, name, NULL);
-		// }
-	// }
-// }
+static void php_libxml_unlink_entity(void *data, void *table, const xmlChar *name)
+{
+	xmlEntityPtr entity = data;
+	if (entity->_private != NULL) {
+		if (xmlHashLookup(table, name) == entity) {
+			xmlHashRemoveEntry(table, name, NULL);
+		}
+	}
+}
 
 /* {{{ internal functions for interoperability */
 static int php_libxml_clear_object(php_libxml_node_object *object)
@@ -205,21 +205,17 @@ static void php_libxml_node_free(xmlNodePtr node)
 				node->type = XML_ELEMENT_NODE;
 				xmlFreeNode(node);
 				break;
-			//case XML_DTD_NODE: {
-			//	xmlDtdPtr dtd = (xmlDtdPtr) node;
-			//	// fprintf(stderr,"dtd private %p\n", dtd->_private);
-			//	if (dtd->_private == NULL) {
-			//		// TODO: same for attributes etc?
-			//		// TODO: the reverse (so for the decls) should also be done...
-//
-			//		/* There's no userland reference to the dtd,
-			//		 * but there might be entities referenced from userland. Unlink those. */
-			//		xmlHashScan(dtd->entities, php_libxml_unlink_entity, dtd->entities);
-			//		xmlHashScan(dtd->pentities, php_libxml_unlink_entity, dtd->pentities);
-			//		/* No unlinking of notations, see remark above at case XML_NOTATION_NODE. */
-			//	}
-			//	ZEND_FALLTHROUGH;
-			//}
+			case XML_DTD_NODE: {
+				xmlDtdPtr dtd = (xmlDtdPtr) node;
+				if (dtd->_private == NULL) {
+					/* There's no userland reference to the dtd,
+					 * but there might be entities referenced from userland. Unlink those. */
+					xmlHashScan(dtd->entities, php_libxml_unlink_entity, dtd->entities);
+					xmlHashScan(dtd->pentities, php_libxml_unlink_entity, dtd->pentities);
+					/* No unlinking of notations, see remark above at case XML_NOTATION_NODE. */
+				}
+				ZEND_FALLTHROUGH;
+			}
 			default:
 				xmlFreeNode(node);
 				break;
@@ -240,7 +236,7 @@ PHP_LIBXML_API void php_libxml_node_free_list(xmlNodePtr node)
 				xmlNodePtr next = curnode->next;
 				/* Must unlink such that freeing of the parent doesn't free this child. */
 				xmlUnlinkNode(curnode);
-				if (curnode->type == XML_ELEMENT_NODE) { // TODO: & attribute?
+				if (curnode->type == XML_ELEMENT_NODE) {
 					/* This ensures that namespace references in this subtree are defined within this subtree,
 					 * otherwise a use-after-free would be possible when the original namespace holder gets freed. */
 					xmlDOMWrapCtxt dummy_ctxt = {0};
