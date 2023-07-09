@@ -1952,7 +1952,7 @@ ZEND_API zend_result ZEND_FASTCALL concat_function(zval *result, zval *op1, zval
 	zend_string *op1_string, *op2_string;
 	bool free_op1_string = false;
 	bool free_op2_string = false;
-
+///////////
 	do {
 		if (EXPECTED(Z_TYPE_P(op1) == IS_STRING)) {
 			op1_string = Z_STR_P(op1);
