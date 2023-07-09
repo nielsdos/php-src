@@ -2021,10 +2021,11 @@ has_op2_string:;
 			if (free_op2_string) {
 				/* transfer ownership of op2_string */
 				ZVAL_STR(result, op2_string);
-				free_op2_string = false;
 			} else {
 				ZVAL_STR_COPY(result, op2_string);
 			}
+			if (free_op1_string) zend_string_release(op1_string);
+			return;
 		}
 	} else if (UNEXPECTED(ZSTR_LEN(op2_string) == 0)) {
 		if (EXPECTED(result != op1 || Z_TYPE_P(result) != IS_STRING)) {
@@ -2034,10 +2035,11 @@ has_op2_string:;
 			if (free_op1_string) {
 				/* transfer ownership of op1_string */
 				ZVAL_STR(result, op1_string);
-				free_op1_string = false;
 			} else {
 				ZVAL_STR_COPY(result, op1_string);
 			}
+			if (free_op2_string) zend_string_release(op2_string);
+			return;
 		}
 	} else {
 		size_t op1_len = ZSTR_LEN(op1_string);
