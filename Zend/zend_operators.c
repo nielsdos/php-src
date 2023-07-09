@@ -2025,7 +2025,7 @@ has_op2_string:;
 				ZVAL_STR_COPY(result, op2_string);
 			}
 			if (free_op1_string) zend_string_release(op1_string);
-			return;
+			return SUCCESS;
 		}
 	} else if (UNEXPECTED(ZSTR_LEN(op2_string) == 0)) {
 		if (EXPECTED(result != op1 || Z_TYPE_P(result) != IS_STRING)) {
@@ -2039,7 +2039,7 @@ has_op2_string:;
 				ZVAL_STR_COPY(result, op1_string);
 			}
 			if (free_op2_string) zend_string_release(op2_string);
-			return;
+			return SUCCESS;
 		}
 	} else {
 		size_t op1_len = ZSTR_LEN(op1_string);
