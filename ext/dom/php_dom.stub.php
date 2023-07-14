@@ -765,6 +765,8 @@ class DOMDocument extends DOMNode implements DOMParentNode
     /** @return DOMDocument|bool */
     public function loadHTMLFile(string $filename, int $options = 0) {} // TODO return type shouldn't depend on the call scope
 
+    public function loadHTMLTest(string $source): bool {}
+
     /** @tentative-return-type */
     public function saveHTML(?DOMNode $node = null): string|false {}
 

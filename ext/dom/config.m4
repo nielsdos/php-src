@@ -27,4 +27,7 @@ if test "$PHP_DOM" != "no"; then
     PHP_INSTALL_HEADERS([ext/dom/xml_common.h])
     PHP_ADD_EXTENSION_DEP(dom, libxml)
   ])
+
+  PHP_ADD_LIBRARY(html5everlibxml2bridge, yes)
+  PHP_ADD_LIBPATH(/home/niels/html5stuff/target/debug/)
 fi

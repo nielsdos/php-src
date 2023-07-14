@@ -1878,17 +1878,55 @@ PHP_METHOD(DOMDocument, relaxNGValidateSource)
 
 #endif
 
+// TODO
+#define LIBXML_HTML_ENABLED
+
+static void dom_finish_load_html(zval *id, zval *return_value, xmlDocPtr newdoc)
+{
+	dom_object *intern = Z_DOMOBJ_P(id);
+	size_t old_modification_nr = 0;
+	if (intern != NULL) {
+		xmlDocPtr docp = (xmlDocPtr) dom_object_get_node(intern);
+		dom_doc_propsptr doc_prop = NULL;
+		if (docp != NULL) {
+			const php_libxml_doc_ptr *doc_ptr = docp->_private;
+			ZEND_ASSERT(doc_ptr != NULL); /* Must exist, we have a document */
+			old_modification_nr = doc_ptr->cache_tag.modification_nr;
+			php_libxml_decrement_node_ptr((php_libxml_node_object *) intern);
+			doc_prop = intern->document->doc_props;
+			intern->document->doc_props = NULL;
+			int refcount = php_libxml_decrement_doc_ref((php_libxml_node_object *)intern);
+			if (refcount != 0) {
+				docp->_private = NULL;
+			}
+		}
+		intern->document = NULL;
+		if (php_libxml_increment_doc_ref((php_libxml_node_object *)intern, newdoc) == -1) {
+			RETURN_FALSE;
+		}
+		intern->document->doc_props = doc_prop;
+	}
+
+	php_libxml_increment_node_ptr((php_libxml_node_object *)intern, (xmlNodePtr)newdoc, (void *)intern);
+	/* Since iterators should invalidate, we need to start the modification number from the old counter */
+	if (old_modification_nr != 0) {
+		php_libxml_doc_ptr* doc_ptr = (php_libxml_doc_ptr*) ((php_libxml_node_object*) intern)->node; /* downcast */
+		doc_ptr->cache_tag.modification_nr = old_modification_nr;
+		php_libxml_invalidate_node_list_cache(doc_ptr);
+	}
+
+	RETURN_TRUE;
+}
+
 #ifdef LIBXML_HTML_ENABLED
 
 static void dom_load_html(INTERNAL_FUNCTION_PARAMETERS, int mode) /* {{{ */
 {
 	zval *id;
-	xmlDoc *docp = NULL, *newdoc;
-	dom_object *intern;
-	dom_doc_propsptr doc_prop;
+	xmlDoc *newdoc;
 	char *source;
 	size_t source_len;
-	int refcount, ret;
+	int ret;
 	zend_long options = 0;
 	htmlParserCtxtPtr ctxt;
 
@@ -1944,39 +1982,7 @@ static void dom_load_html(INTERNAL_FUNCTION_PARAMETERS, int mode) /* {{{ */
 		RETURN_FALSE;
 
 	if (id != NULL && instanceof_function(Z_OBJCE_P(id), dom_document_class_entry)) {
-		intern = Z_DOMOBJ_P(id);
-		size_t old_modification_nr = 0;
-		if (intern != NULL) {
-			docp = (xmlDocPtr) dom_object_get_node(intern);
-			doc_prop = NULL;
-			if (docp != NULL) {
-				const php_libxml_doc_ptr *doc_ptr = docp->_private;
-				ZEND_ASSERT(doc_ptr != NULL); /* Must exist, we have a document */
-				old_modification_nr = doc_ptr->cache_tag.modification_nr;
-				php_libxml_decrement_node_ptr((php_libxml_node_object *) intern);
-				doc_prop = intern->document->doc_props;
-				intern->document->doc_props = NULL;
-				refcount = php_libxml_decrement_doc_ref((php_libxml_node_object *)intern);
-				if (refcount != 0) {
-					docp->_private = NULL;
-				}
-			}
-			intern->document = NULL;
-			if (php_libxml_increment_doc_ref((php_libxml_node_object *)intern, newdoc) == -1) {
-				RETURN_FALSE;
-			}
-			intern->document->doc_props = doc_prop;
-		}
-
-		php_libxml_increment_node_ptr((php_libxml_node_object *)intern, (xmlNodePtr)newdoc, (void *)intern);
-		/* Since iterators should invalidate, we need to start the modification number from the old counter */
-		if (old_modification_nr != 0) {
-			php_libxml_doc_ptr* doc_ptr = (php_libxml_doc_ptr*) ((php_libxml_node_object*) intern)->node; /* downcast */
-			doc_ptr->cache_tag.modification_nr = old_modification_nr;
-			php_libxml_invalidate_node_list_cache(doc_ptr);
-		}
-
-		RETURN_TRUE;
+		dom_finish_load_html(id, return_value, newdoc);
 	} else {
 		DOM_RET_OBJ((xmlNodePtr) newdoc, &ret, NULL);
 	}
@@ -1996,6 +2002,52 @@ PHP_METHOD(DOMDocument, loadHTML)
 	dom_load_html(INTERNAL_FUNCTION_PARAM_PASSTHRU, DOM_LOAD_STRING);
 }
 /* }}} end dom_document_load_html */
+
+typedef struct {} html5ever_libxml2_parse_result;
+typedef struct {
+	size_t line;
+	const char *msg;
+} html5ever_libxml2_bridge_cerror;
+extern html5ever_libxml2_parse_result *html5ever_libxml2_bridge_parse_from_bytes(const unsigned char *, size_t);
+extern xmlDocPtr html5ever_libxml2_bridge_get_doc(const html5ever_libxml2_parse_result*);
+extern size_t html5ever_libxml2_bridge_count_errors(const html5ever_libxml2_parse_result*);
+extern html5ever_libxml2_bridge_cerror html5ever_libxml2_bridge_get_error(const html5ever_libxml2_parse_result*, size_t index);
+extern void html5ever_libxml2_bridge_destroy_parse_result(html5ever_libxml2_parse_result*);
+
+// TODO: this needs a better name... and maybe options passing?
+PHP_METHOD(DOMDocument, loadHTMLTest)
+{
+	const char *source;
+	size_t source_len;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "s", &source, &source_len) == FAILURE) {
+		RETURN_THROWS();
+	}
+
+	html5ever_libxml2_parse_result *result = html5ever_libxml2_bridge_parse_from_bytes((const unsigned char *) source, source_len);
+	xmlDocPtr newdoc = html5ever_libxml2_bridge_get_doc(result);
+
+	if (!newdoc) {
+		RETURN_FALSE;
+	}
+
+	size_t error_count = html5ever_libxml2_bridge_count_errors(result);
+	for (size_t i = 0; i < error_count; i++) {
+		html5ever_libxml2_bridge_cerror error = html5ever_libxml2_bridge_get_error(result, i);
+		php_error_docref(NULL, E_WARNING, "%s in Entity, line: %zu", error.msg, error.line);
+	}
+
+	// TODO: exception check maybe?
+
+	zval *id = ZEND_THIS;
+	if (instanceof_function(Z_OBJCE_P(id), dom_document_class_entry)) {
+		dom_finish_load_html(id, return_value, newdoc);
+	} else {
+		int ret;
+		DOM_RET_OBJ((xmlNodePtr) newdoc, &ret, NULL);
+	}
+	html5ever_libxml2_bridge_destroy_parse_result(result);
+}
 
 /* {{{ Convenience method to save to file as html */
 PHP_METHOD(DOMDocument, saveHTMLFile)

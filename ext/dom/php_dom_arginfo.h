@@ -1,5 +1,5 @@
 /* This is a generated file, edit the .stub.php file instead.
- * Stub hash: 91732c51635f43f016f4b531d9aa8e00312084ec */
+ * Stub hash: fdee0e2adea4547eca0a8bdfbd01aa3b4f4f65fc */
 
 ZEND_BEGIN_ARG_WITH_RETURN_OBJ_INFO_EX(arginfo_dom_import_simplexml, 0, 1, DOMElement, 0)
 	ZEND_ARG_TYPE_INFO(0, node, IS_OBJECT, 0)
@@ -383,6 +383,12 @@ ZEND_END_ARG_INFO()
 #endif
 
 #if defined(LIBXML_HTML_ENABLED)
+ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_class_DOMDocument_loadHTMLTest, 0, 1, _IS_BOOL, 0)
+	ZEND_ARG_TYPE_INFO(0, source, IS_STRING, 0)
+ZEND_END_ARG_INFO()
+#endif
+
+#if defined(LIBXML_HTML_ENABLED)
 ZEND_BEGIN_ARG_WITH_TENTATIVE_RETURN_TYPE_MASK_EX(arginfo_class_DOMDocument_saveHTML, 0, 0, MAY_BE_STRING|MAY_BE_FALSE)
 	ZEND_ARG_OBJ_INFO_WITH_DEFAULT_VALUE(0, node, DOMNode, 1, "null")
 ZEND_END_ARG_INFO()
@@ -598,6 +604,9 @@ ZEND_METHOD(DOMDocument, loadHTML);
 #endif
 #if defined(LIBXML_HTML_ENABLED)
 ZEND_METHOD(DOMDocument, loadHTMLFile);
+#endif
+#if defined(LIBXML_HTML_ENABLED)
+ZEND_METHOD(DOMDocument, loadHTMLTest);
 #endif
 #if defined(LIBXML_HTML_ENABLED)
 ZEND_METHOD(DOMDocument, saveHTML);
@@ -822,6 +831,9 @@ static const zend_function_entry class_DOMDocument_methods[] = {
 #endif
 #if defined(LIBXML_HTML_ENABLED)
 	ZEND_ME(DOMDocument, loadHTMLFile, arginfo_class_DOMDocument_loadHTMLFile, ZEND_ACC_PUBLIC)
+#endif
+#if defined(LIBXML_HTML_ENABLED)
+	ZEND_ME(DOMDocument, loadHTMLTest, arginfo_class_DOMDocument_loadHTMLTest, ZEND_ACC_PUBLIC)
 #endif
 #if defined(LIBXML_HTML_ENABLED)
 	ZEND_ME(DOMDocument, saveHTML, arginfo_class_DOMDocument_saveHTML, ZEND_ACC_PUBLIC)
