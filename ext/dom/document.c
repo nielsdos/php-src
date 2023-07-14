@@ -1878,9 +1878,6 @@ PHP_METHOD(DOMDocument, relaxNGValidateSource)
 
 #endif
 
-// TODO
-#define LIBXML_HTML_ENABLED
-
 static void dom_finish_load_html(zval *id, zval *return_value, xmlDocPtr newdoc)
 {
 	dom_object *intern = Z_DOMOBJ_P(id);
