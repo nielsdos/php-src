@@ -2006,6 +2006,7 @@ PHP_METHOD(DOMDocument, loadHTML)
 typedef struct {} html5ever_libxml2_parse_result;
 typedef struct {
 	size_t line;
+	size_t msg_len;
 	const char *msg;
 } html5ever_libxml2_bridge_cerror;
 extern html5ever_libxml2_parse_result *html5ever_libxml2_bridge_parse_from_bytes(const unsigned char *, size_t);
@@ -2034,7 +2035,7 @@ PHP_METHOD(DOMDocument, loadHTMLTest)
 	size_t error_count = html5ever_libxml2_bridge_count_errors(result);
 	for (size_t i = 0; i < error_count; i++) {
 		html5ever_libxml2_bridge_cerror error = html5ever_libxml2_bridge_get_error(result, i);
-		php_error_docref(NULL, E_WARNING, "%s in Entity, line: %zu", error.msg, error.line);
+		php_error_docref(NULL, E_WARNING, "%.*s in Entity, line: %zu", (int) error.msg_len, error.msg, error.line);
 	}
 
 	// TODO: exception check maybe?
