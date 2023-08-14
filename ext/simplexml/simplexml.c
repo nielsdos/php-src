@@ -62,6 +62,7 @@ static void _node_as_zval(php_sxe_object *sxe, xmlNodePtr node, zval *value, SXE
 	subnode->document = sxe->document;
 	subnode->document->refcount++;
 	subnode->iter.type = itertype;
+	printf("node as zval %p %d\n", subnode, itertype);
 	if (name) {
 		subnode->iter.name = (xmlChar*)estrdup(name);
 	}
@@ -908,12 +909,23 @@ static void sxe_dimension_delete(zend_object *object, zval *offset)
 
 static inline zend_string *sxe_xmlNodeListGetString(xmlDocPtr doc, xmlNodePtr list, int inLine) /* {{{ */
 {
-	xmlChar *tmp = xmlNodeListGetString(doc, list, inLine);
+	xmlChar *tmp;
 	zend_string *res;
+	bool free_tmp;
+
+	if (list->type == XML_PI_NODE) {
+		tmp = list->content;
+		free_tmp = false;
+	} else {
+		tmp = xmlNodeListGetString(doc, list, inLine);
+		free_tmp = true;
+	}
 
 	if (tmp) {
 		res = zend_string_init((char*)tmp, strlen((char *)tmp), 0);
-		xmlFree(tmp);
+		if (free_tmp) {
+			xmlFree(tmp);
+		}
 	} else {
 		res = ZSTR_EMPTY_ALLOC();
 	}
@@ -1313,6 +1325,7 @@ PHP_METHOD(SimpleXMLElement, xpath)
 
 		for (i = 0; i < result->nodeNr; ++i) {
 			nodeptr = result->nodeTab[i];
+			printf("nodeptr type %d\n", nodeptr->type);
 			if (nodeptr->type == XML_TEXT_NODE || nodeptr->type == XML_ELEMENT_NODE || nodeptr->type == XML_ATTRIBUTE_NODE) {
 				/**
 				 * Detect the case where the last selector is text(), simplexml
@@ -1327,6 +1340,9 @@ PHP_METHOD(SimpleXMLElement, xpath)
 					_node_as_zval(sxe, nodeptr, &value, SXE_ITER_NONE, NULL, NULL, 0);
 				}
 
+				add_next_index_zval(return_value, &value);
+			} else if (nodeptr->type == XML_PI_NODE) {
+				_node_as_zval(sxe, nodeptr, &value, SXE_ITER_NONE, NULL, NULL, 0);
 				add_next_index_zval(return_value, &value);
 			}
 		}
@@ -1616,7 +1632,9 @@ PHP_METHOD(SimpleXMLElement, getName)
 	sxe = Z_SXEOBJ_P(ZEND_THIS);
 
 	GET_NODE(sxe, node);
+	printf("node %s\n", node->name);
 	node = php_sxe_get_first_node(sxe, node);
+	printf("node %s\n", node->name);
 	if (node) {
 		namelen = xmlStrlen(node->name);
 		RETURN_STRINGL((char*)node->name, namelen);
@@ -1794,10 +1812,10 @@ PHP_METHOD(SimpleXMLElement, addAttribute)
 /* }}} */
 
 /* {{{ cast_object() */
-static zend_result cast_object(zval *object, int type, char *contents)
+static zend_result cast_object(zval *object, int type, zend_string *contents)
 {
 	if (contents) {
-		ZVAL_STRINGL(object, contents, strlen(contents));
+		ZVAL_STR(object, contents);
 	} else {
 		ZVAL_NULL(object);
 	}
@@ -1829,9 +1847,8 @@ static zend_result cast_object(zval *object, int type, char *contents)
 static zend_result sxe_object_cast_ex(zend_object *readobj, zval *writeobj, int type)
 {
 	php_sxe_object *sxe;
-	xmlChar        *contents = NULL;
+	zend_string    *contents = NULL;
 	xmlNodePtr	    node;
-	zend_result rv;
 
 	sxe = php_sxe_fetch_object(readobj);
 
@@ -1845,10 +1862,12 @@ static zend_result sxe_object_cast_ex(zend_object *readobj, zval *writeobj, int 
 		return SUCCESS;
 	}
 
+	printf("sxe_object_cast_ex type %d\n", sxe->iter.type);
+
 	if (sxe->iter.type != SXE_ITER_NONE) {
 		node = php_sxe_get_first_node(sxe, NULL);
 		if (node) {
-			contents = xmlNodeListGetString((xmlDocPtr) sxe->document->ptr, node->children, 1);
+			contents = sxe_xmlNodeListGetString((xmlDocPtr) sxe->document->ptr, node->children, 1);
 		}
 	} else {
 		if (!sxe->node) {
@@ -1859,18 +1878,12 @@ static zend_result sxe_object_cast_ex(zend_object *readobj, zval *writeobj, int 
 
 		if (sxe->node && sxe->node->node) {
 			if (sxe->node->node->children) {
-				contents = xmlNodeListGetString((xmlDocPtr) sxe->document->ptr, sxe->node->node->children, 1);
+				contents = sxe_xmlNodeListGetString((xmlDocPtr) sxe->document->ptr, sxe->node->node->children, 1);
 			}
 		}
 	}
 
-	rv = cast_object(writeobj, type, (char *)contents);
-
-	if (contents) {
-		xmlFree(contents);
-	}
-
-	return rv;
+	return cast_object(writeobj, type, contents);
 }
 /* }}} */
 
@@ -2453,6 +2466,8 @@ static xmlNodePtr php_sxe_reset_iterator(php_sxe_object *sxe, int use_data) /* {
 	}
 
 	GET_NODE(sxe, node)
+
+	printf("sxe %p node %p %s, iter type %d\n", sxe, node, node->name, sxe->iter.type);
 
 	if (node) {
 		switch (sxe->iter.type) {
