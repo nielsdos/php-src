@@ -61,6 +61,9 @@ int dom_document_recover_write(dom_object *obj, zval *newval);
 int dom_document_substitue_entities_read(dom_object *obj, zval *retval);
 int dom_document_substitue_entities_write(dom_object *obj, zval *newval);
 
+/* html5 document properties */
+int dom_html5_document_encoding_write(dom_object *obj, zval *retval);
+
 /* documenttype properties */
 int dom_documenttype_name_read(dom_object *obj, zval *retval);
 int dom_documenttype_entities_read(dom_object *obj, zval *retval);

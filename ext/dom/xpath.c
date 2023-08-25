@@ -377,7 +377,6 @@ static void php_xpath_eval(INTERNAL_FUNCTION_PARAMETERS, int type) /* {{{ */
 		}
 	}
 
-
 	ctxp->namespaces = ns;
 	ctxp->nsNr = nsnbr;
 
