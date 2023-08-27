@@ -1031,14 +1031,16 @@ static zend_never_inline zval* zend_assign_to_typed_prop(zend_property_info *inf
 	ZVAL_DEREF(value);
 	ZVAL_COPY(&tmp, value);
 
-	if (UNEXPECTED(!i_zend_verify_property_type(info, &tmp, EX_USES_STRICT_TYPES()))) {
+	bool strict_types = EX_USES_STRICT_TYPES();
+
+	if (UNEXPECTED(!i_zend_verify_property_type(info, &tmp, strict_types)) {
 		zval_ptr_dtor(&tmp);
 		return &EG(uninitialized_zval);
 	}
 
 	Z_PROP_FLAG_P(property_val) &= ~IS_PROP_REINITABLE;
 
-	return zend_assign_to_variable_ex(property_val, &tmp, IS_TMP_VAR, EX_USES_STRICT_TYPES(), garbage_ptr);
+	return zend_assign_to_variable_ex(property_val, &tmp, IS_TMP_VAR, strict_types, garbage_ptr);
 }
 
 static zend_always_inline bool zend_value_instanceof_static(zval *zv) {
