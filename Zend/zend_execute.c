@@ -1033,7 +1033,7 @@ static zend_never_inline zval* zend_assign_to_typed_prop(zend_property_info *inf
 
 	bool strict_types = EX_USES_STRICT_TYPES();
 
-	if (UNEXPECTED(!i_zend_verify_property_type(info, &tmp, strict_types)) {
+	if (UNEXPECTED(!i_zend_verify_property_type(info, &tmp, strict_types))) {
 		zval_ptr_dtor(&tmp);
 		return &EG(uninitialized_zval);
 	}
