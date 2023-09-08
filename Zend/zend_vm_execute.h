@@ -14643,7 +14643,7 @@ static ZEND_VM_HOT ZEND_OPCODE_HANDLER_RET ZEND_FASTCALL ZEND_FE_FREE_SPEC_TMPVA
 	/* PHP only needs to save the opline and check for an exception if the last reference to the array was garbage collected (destructors of elements in the array could throw an exception) */
 	if (Z_REFCOUNTED_P(var) && !Z_DELREF_P(var)) {
 		SAVE_OPLINE();
-		rc_dtor_func(Z_COUNTED_P(var));
+		zend_array_destroy(Z_ARRVAL_P(var));
 		ZEND_VM_NEXT_OPCODE_CHECK_EXCEPTION();
 	}
 	ZEND_VM_NEXT_OPCODE();
