@@ -1098,7 +1098,8 @@ PHP_METHOD(DOM_Document, normalizeDocument)
 }
 /* }}} end dom_document_normalize_document */
 
-void php_dom_document_constructor(INTERNAL_FUNCTION_PARAMETERS)
+/* {{{ */
+PHP_METHOD(DOMDocument, __construct)
 {
 	xmlDoc *docp = NULL, *olddoc;
 	dom_object *intern;
@@ -1137,19 +1138,13 @@ void php_dom_document_constructor(INTERNAL_FUNCTION_PARAMETERS)
 	}
 	php_libxml_increment_node_ptr((php_libxml_node_object *)intern, (xmlNodePtr)docp, (void *)intern);
 }
-
-/* {{{ */
-PHP_METHOD(DOMDocument, __construct)
-{
-	php_dom_document_constructor(INTERNAL_FUNCTION_PARAM_PASSTHRU);
-}
 /* }}} end DOMDocument::__construct */
 
-char *_dom_get_valid_file_path(char *source, char *resolved_path, int resolved_path_len ) /* {{{ */
+const char *_dom_get_valid_file_path(const char *source, char *resolved_path, int resolved_path_len ) /* {{{ */
 {
 	xmlURI *uri;
 	xmlChar *escsource;
-	char *file_dest;
+	const char *file_dest;
 	int isFileUri = 0;
 
 	uri = xmlCreateURI();
@@ -1199,7 +1194,7 @@ char *_dom_get_valid_file_path(char *source, char *resolved_path, int resolved_p
 }
 /* }}} */
 
-static xmlDocPtr dom_document_parser(zval *id, int mode, char *source, size_t source_len, size_t options) /* {{{ */
+xmlDocPtr dom_document_parser(zval *id, int mode, const char *source, size_t source_len, size_t options) /* {{{ */
 {
 	xmlDocPtr ret;
 	xmlParserCtxtPtr ctxt = NULL;
@@ -1208,10 +1203,14 @@ static xmlDocPtr dom_document_parser(zval *id, int mode, char *source, size_t so
 	int old_error_reporting = 0;
 	char *directory=NULL, resolved_path[MAXPATHLEN + 1];
 
-	dom_object *intern = Z_DOMOBJ_P(id);
-	php_libxml_ref_obj *document = intern->document;
-
-	libxml_doc_props const* doc_props = dom_get_doc_props_read_only(document);
+	libxml_doc_props const* doc_props;
+	if (id == NULL) {
+		doc_props = dom_get_doc_props_read_only(NULL);
+	} else {
+		dom_object *intern = Z_DOMOBJ_P(id);
+		php_libxml_ref_obj *document = intern->document;
+		doc_props = dom_get_doc_props_read_only(document);
+	}
 	validate = doc_props->validateonparse;
 	resolve_externals = doc_props->resolveexternals;
 	keep_blanks = doc_props->preservewhitespace;
@@ -1221,12 +1220,11 @@ static xmlDocPtr dom_document_parser(zval *id, int mode, char *source, size_t so
 	xmlInitParser();
 
 	if (mode == DOM_LOAD_FILE) {
-		char *file_dest;
 		if (CHECK_NULL_PATH(source, source_len)) {
-			zend_value_error("Path to document must not contain any null bytes");
+			zend_argument_value_error(1, "must not contain any null bytes");
 			return NULL;
 		}
-		file_dest = _dom_get_valid_file_path(source, resolved_path, MAXPATHLEN);
+		const char *file_dest = _dom_get_valid_file_path(source, resolved_path, MAXPATHLEN);
 		if (file_dest) {
 			ctxt = xmlCreateFileParserCtxt(file_dest);
 		}
@@ -1312,7 +1310,7 @@ static xmlDocPtr dom_document_parser(zval *id, int mode, char *source, size_t so
 }
 /* }}} */
 
-void php_dom_finish_loading_document(zval *this, zval *return_value, xmlDocPtr newdoc)
+static void php_dom_finish_loading_document(zval *this, zval *return_value, xmlDocPtr newdoc)
 {
 	if (!newdoc)
 		RETURN_FALSE;
@@ -1320,7 +1318,7 @@ void php_dom_finish_loading_document(zval *this, zval *return_value, xmlDocPtr n
 	dom_object *intern = Z_DOMOBJ_P(this);
 	size_t old_modification_nr = 0;
 	if (intern != NULL) {
-		bool is_html5_class = intern->document->is_html5_class;
+		bool is_modern_api_class = intern->document->is_modern_api_class;
 		xmlDocPtr docp = (xmlDocPtr) dom_object_get_node(intern);
 		dom_doc_propsptr doc_prop = NULL;
 		if (docp != NULL) {
@@ -1340,7 +1338,7 @@ void php_dom_finish_loading_document(zval *this, zval *return_value, xmlDocPtr n
 			RETURN_FALSE;
 		}
 		intern->document->doc_props = doc_prop;
-		intern->document->is_html5_class = is_html5_class;
+		intern->document->is_modern_api_class = is_modern_api_class;
 	}
 
 	php_libxml_increment_node_ptr((php_libxml_node_object *)intern, (xmlNodePtr)newdoc, (void *)intern);
@@ -1353,7 +1351,8 @@ void php_dom_finish_loading_document(zval *this, zval *return_value, xmlDocPtr n
 	RETURN_TRUE;
 }
 
-void dom_parse_document(INTERNAL_FUNCTION_PARAMETERS, int mode, xmlDocPtr *doc_out) {
+static void dom_parse_document(INTERNAL_FUNCTION_PARAMETERS, int mode)
+{
 	char *source;
 	size_t source_len;
 	zend_long options = 0;
@@ -1376,8 +1375,6 @@ void dom_parse_document(INTERNAL_FUNCTION_PARAMETERS, int mode, xmlDocPtr *doc_o
 	}
 
 	xmlDocPtr newdoc = dom_document_parser(ZEND_THIS, mode, source, source_len, options);
-	*doc_out = newdoc;
-
 	php_dom_finish_loading_document(ZEND_THIS, return_value, newdoc);
 }
 
@@ -1386,8 +1383,7 @@ Since: DOM Level 3
 */
 PHP_METHOD(DOMDocument, load)
 {
-	xmlDocPtr unused;
-	dom_parse_document(INTERNAL_FUNCTION_PARAM_PASSTHRU, DOM_LOAD_FILE, &unused);
+	dom_parse_document(INTERNAL_FUNCTION_PARAM_PASSTHRU, DOM_LOAD_FILE);
 }
 /* }}} end dom_document_load */
 
@@ -1396,8 +1392,7 @@ Since: DOM Level 3
 */
 PHP_METHOD(DOMDocument, loadXML)
 {
-	xmlDocPtr unused;
-	dom_parse_document(INTERNAL_FUNCTION_PARAM_PASSTHRU, DOM_LOAD_STRING, &unused);
+	dom_parse_document(INTERNAL_FUNCTION_PARAM_PASSTHRU, DOM_LOAD_STRING);
 }
 /* }}} end dom_document_loadxml */
 
@@ -1660,7 +1655,8 @@ static void _dom_document_schema_validate(INTERNAL_FUNCTION_PARAMETERS, int type
 	zval *id;
 	xmlDoc *docp;
 	dom_object *intern;
-	char *source = NULL, *valid_file = NULL;
+	char *source = NULL;
+	const char *valid_file = NULL;
 	size_t source_len = 0;
 	int valid_opts = 0;
 	zend_long flags = 0;
@@ -1770,7 +1766,8 @@ static void _dom_document_relaxNG_validate(INTERNAL_FUNCTION_PARAMETERS, int typ
 	zval *id;
 	xmlDoc *docp;
 	dom_object *intern;
-	char *source = NULL, *valid_file = NULL;
+	char *source = NULL;
+	const char *valid_file = NULL;
 	size_t source_len = 0;
 	xmlRelaxNGParserCtxtPtr parser;
 	xmlRelaxNGPtr           sptr;
@@ -2067,6 +2064,11 @@ PHP_METHOD(DOM_Document, registerNodeClass)
 	dom_object *intern;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS(), "CC!", &basece, &ce) == FAILURE) {
+		RETURN_THROWS();
+	}
+
+	if (basece->ce_flags & ZEND_ACC_ABSTRACT) {
+		zend_argument_value_error(1, "must be a non-abstract class");
 		RETURN_THROWS();
 	}
 
