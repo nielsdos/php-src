@@ -1736,6 +1736,51 @@ PHP_METHOD(DOMNode, lookupNamespaceURI)
 }
 /* }}} end dom_node_lookup_namespace_uri */
 
+static zend_ulong dom_canonicalize_lookup_table_hash(xmlNodePtr node)
+{
+	// TODO: only do this if void*'s size equals zend_ulong's size
+	return (zend_ulong) node >> 3;
+}
+
+static int dom_canonicalize_lookup_table_cb(void *user_data, xmlNodePtr node, xmlNodePtr parent)
+{
+	HashTable *table = user_data;
+	if (node->type == XML_NAMESPACE_DECL && node->parent != parent) {
+		return zend_hash_index_find(table, dom_canonicalize_lookup_table_hash(parent)) != NULL;
+	}
+	return zend_hash_index_find(table, dom_canonicalize_lookup_table_hash(node)) != NULL;
+}
+
+static int dom_canonicalize_type_filter_cb(void *user_data, xmlNodePtr node, xmlNodePtr parent)
+{
+	if (node->type != XML_ELEMENT_NODE
+		&& node->type != XML_ATTRIBUTE_NODE
+		&& node->type != XML_TEXT_NODE
+		&& node->type != XML_CDATA_SECTION_NODE
+		&& node->type != XML_PI_NODE
+		&& node->type != XML_COMMENT_NODE
+		&& node->type != XML_DOCUMENT_NODE
+		&& node->type != XML_HTML_DOCUMENT_NODE
+		&& node->type != XML_NAMESPACE_DECL) {
+		return 0;
+	}
+
+	xmlNodePtr root = user_data;
+	/* We have to unroll the first iteration because node->parent is not necessarily equal to parent due to libxml2 tree rules */
+	if (node == root) {
+		return 1;
+	}
+	node = parent;
+	while (node != NULL) {
+		if (node == root) {
+			return 1;
+		}
+		node = node->parent;
+	}
+
+	return 0;
+}
+
 static void dom_canonicalization(INTERNAL_FUNCTION_PARAMETERS, int mode) /* {{{ */
 {
 	zval *id;
@@ -1779,22 +1824,32 @@ static void dom_canonicalization(INTERNAL_FUNCTION_PARAMETERS, int mode) /* {{{ 
 
 	php_libxml_invalidate_node_list_cache_from_doc(docp);
 
+	bool simple_node_type_filter = false;
 	if (xpath_array == NULL) {
 		if (nodep->type != XML_DOCUMENT_NODE) {
-			ctxp = xmlXPathNewContext(docp);
-			ctxp->node = nodep;
-			xpathobjp = xmlXPathEvalExpression((xmlChar *) "(.//. | .//@* | .//namespace::*)", ctxp);
-			ctxp->node = NULL;
-			if (xpathobjp && xpathobjp->type == XPATH_NODESET) {
-				nodeset = xpathobjp->nodesetval;
-			} else {
-				if (xpathobjp) {
-					xmlXPathFreeObject(xpathobjp);
-				}
-				xmlXPathFreeContext(ctxp);
-				zend_throw_error(NULL, "XPath query did not return a nodeset");
-				RETURN_THROWS();
-			}
+			simple_node_type_filter = true;
+			// ctxp = xmlXPathNewContext(docp);
+			// ctxp->node = nodep;
+			// xpathobjp = xmlXPathEvalExpression((xmlChar *) "(.//. | .//@* | .//namespace::*)", ctxp);
+			// ctxp->node = NULL;
+			// if (xpathobjp && xpathobjp->type == XPATH_NODESET) {
+			// 	nodeset = xpathobjp->nodesetval;
+
+			// 	printf("hier\n");
+			// 	// TODO: debug blob
+			// 	for (int i = 0; i < nodeset->nodeNr; i++) {
+			// 		if (nodeset->nodeTab[i]->type == XML_DTD_NODE) {
+			// 			abort();
+			// 		}
+			// 	}
+			// } else {
+			// 	if (xpathobjp) {
+			// 		xmlXPathFreeObject(xpathobjp);
+			// 	}
+			// 	xmlXPathFreeContext(ctxp);
+			// 	zend_throw_error(NULL, "XPath query did not return a nodeset");
+			// 	RETURN_THROWS();
+			// }
 		}
 	} else {
 		/*xpath query from xpath_array */
@@ -1873,8 +1928,28 @@ static void dom_canonicalization(INTERNAL_FUNCTION_PARAMETERS, int mode) /* {{{ 
 	}
 
 	if (buf != NULL) {
+#if 1
+		if (simple_node_type_filter) {
+			ret = xmlC14NExecute(docp, dom_canonicalize_type_filter_cb, nodep, exclusive, inclusive_ns_prefixes, with_comments, buf);
+		} else {
+			// HashTable lookup_table;
+			// zend_hash_init(&lookup_table, nodeset->nodeNr, NULL, NULL, 0);
+			// for (int i = 0; i < nodeset->nodeNr; i++) {
+				// xmlNodePtr node = nodeset->nodeTab[i];
+				// zval *added = zend_hash_index_add_new_ptr(&lookup_table, dom_canonicalize_lookup_table_hash(node), /* doesn't matter */ NULL);
+				// ZEND_ASSERT(added != NULL);
+			// }
+// 
+			// ret = xmlC14NExecute(docp, dom_canonicalize_lookup_table_cb, &lookup_table, exclusive, inclusive_ns_prefixes, with_comments, buf);
+			// zend_hash_destroy(&lookup_table);
 		ret = xmlC14NDocSaveTo(docp, nodeset, exclusive, inclusive_ns_prefixes,
 			with_comments, buf);
+		}
+#else
+
+		ret = xmlC14NDocSaveTo(docp, nodeset, exclusive, inclusive_ns_prefixes,
+			with_comments, buf);
+#endif
 	}
 
 	if (inclusive_ns_prefixes != NULL) {
