@@ -16,10 +16,6 @@
    +----------------------------------------------------------------------+
 */
 
-#define printf xprintf
-
-static int xprintf(const char*f,...){}
-
 #include "zend_compile.h"
 #include "zend_generators.h"
 #include "zend_inference.h"
@@ -1942,42 +1938,33 @@ static uint32_t assign_dim_array_result_type(
 		if (dim_op_type == IS_UNUSED) {
 			if (arr_type & (MAY_BE_UNDEF|MAY_BE_NULL|MAY_BE_FALSE)) {
 				tmp |= MAY_BE_ARRAY_PACKED;
-				printf("hier1\n");
 			}
 			tmp |= MAY_BE_HASH_ONLY(arr_type) ? MAY_BE_ARRAY_NUMERIC_HASH : (MAY_BE_ARRAY_KEY_LONG &~ MAY_BE_ARRAY_PACKED);
-			printf("tmp1: %x\n", tmp);
 		} else {
 			if (dim_type & (MAY_BE_LONG|MAY_BE_FALSE|MAY_BE_TRUE|MAY_BE_RESOURCE|MAY_BE_DOUBLE)) {
 				if (arr_type & (MAY_BE_UNDEF|MAY_BE_NULL|MAY_BE_FALSE)) {
 					tmp |= MAY_BE_ARRAY_PACKED;
-					printf("hier2\n");
 				}
 				tmp |= MAY_BE_HASH_ONLY(arr_type) ? MAY_BE_ARRAY_NUMERIC_HASH : (MAY_BE_ARRAY_KEY_LONG &~ MAY_BE_ARRAY_PACKED);
-				printf("tmp2: %x\n", tmp);
 			}
 			if (dim_type & MAY_BE_STRING) {
 				tmp |= MAY_BE_ARRAY_KEY_STRING;
-				printf("tmp3 before: %x\n", tmp);
 				if (dim_op_type != IS_CONST) {
 					// FIXME: numeric string
 					if (arr_type & (MAY_BE_UNDEF|MAY_BE_NULL|MAY_BE_FALSE)) {
 						tmp |= MAY_BE_ARRAY_PACKED;
-						printf("hier3\n");
 					}
 					tmp |= MAY_BE_HASH_ONLY(arr_type) ? MAY_BE_ARRAY_NUMERIC_HASH : (MAY_BE_ARRAY_KEY_LONG &~ MAY_BE_ARRAY_PACKED);
 				}
-				printf("tmp3 after: %x\n", tmp);
 			}
 			if (dim_type & (MAY_BE_UNDEF|MAY_BE_NULL)) {
 				tmp |= MAY_BE_ARRAY_KEY_STRING;
-				printf("tmp4: %x\n", tmp);
 			}
 		}
 	}
 	/* Only add value type if we have a key type. It might be that the key type is illegal
 	 * for arrays. */
 	if (tmp & MAY_BE_ARRAY_KEY_ANY) {
-		printf("hier4, %x, %x\n", value_type, tmp);
 		tmp |= (value_type & MAY_BE_ANY) << MAY_BE_ARRAY_SHIFT;
 	}
 	return tmp;
@@ -3116,10 +3103,8 @@ static zend_always_inline int _zend_update_type_info(
 			if (ssa_op->result_def >= 0) {
 				uint32_t arr_type;
 				if (opline->opcode == ZEND_INIT_ARRAY) {
-					printf("zero branch %d\n", opline->opcode);
 					arr_type = 0;
 				} else {
-					printf("non-zero branch %d\n", opline->opcode);
 					arr_type = RES_USE_INFO();
 				}
 				tmp = MAY_BE_RC1|MAY_BE_ARRAY|arr_type;
