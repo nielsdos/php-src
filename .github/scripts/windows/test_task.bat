@@ -19,51 +19,6 @@ if not exist "%DEPS_DIR%" (
 	exit /b 3
 )
 
-rem setup MySQL related exts
-set MYSQL_PWD=Password12!
-set MYSQL_TEST_PASSWD=%MYSQL_PWD%
-set MYSQL_TEST_USER=root
-set MYSQL_TEST_HOST=127.0.0.1
-set MYSQL_TEST_PORT=3306
-set PDO_MYSQL_TEST_USER=%MYSQL_TEST_USER%
-set PDO_MYSQL_TEST_PASS=%MYSQL_PWD%
-set PDO_MYSQL_TEST_HOST=%MYSQL_TEST_HOST%
-set PDO_MYSQL_TEST_PORT=%MYSQL_TEST_PORT%
-set PDO_MYSQL_TEST_DSN=mysql:host=%PDO_MYSQL_TEST_HOST%;port=%PDO_MYSQL_TEST_PORT%;dbname=test
-set TMP_MYSQL_BIN=C:\mysql\bin
-"%TMP_MYSQL_BIN%\mysql.exe" --host=%PDO_MYSQL_TEST_HOST% --port=%MYSQL_TEST_PORT% --user=%MYSQL_TEST_USER% --password=%MYSQL_TEST_PASSWD% -e "CREATE DATABASE IF NOT EXISTS test"
-if %errorlevel% neq 0 exit /b 3
-
-rem setup PostgreSQL related exts
-set PGUSER=postgres
-set PGPASSWORD=Password12!
-rem set PGSQL_TEST_CONNSTR=host=127.0.0.1 dbname=test port=5432 user=postgres password=Password12!
-echo ^<?php $conn_str = "host=127.0.0.1 dbname=test port=5432 user=%PGUSER% password=%PGPASSWORD%"; ?^> >> "./ext/pgsql/tests/config.inc"
-set PDO_PGSQL_TEST_DSN=pgsql:host=127.0.0.1 port=5432 dbname=test user=%PGUSER% password=%PGPASSWORD%
-set TMP_POSTGRESQL_BIN=%PGBIN%
-"%TMP_POSTGRESQL_BIN%\createdb.exe" test
-if %errorlevel% neq 0 exit /b 3
-
-rem setup ODBC related exts
-set ODBC_TEST_USER=sa
-set ODBC_TEST_PASS=Password12!
-set ODBC_TEST_DSN=Driver={ODBC Driver 17 for SQL Server};Server=^(local^)\SQLEXPRESS;Database=master;uid=%ODBC_TEST_USER%;pwd=%ODBC_TEST_PASS%
-set PDOTEST_DSN=odbc:%ODBC_TEST_DSN%
-
-rem setup Firebird related exts
-curl -sLo Firebird.zip https://github.com/FirebirdSQL/firebird/releases/download/v3.0.9/Firebird-3.0.9.33560-0_x64.zip
-7z x -oC:\Firebird Firebird.zip
-set PDO_FIREBIRD_TEST_DATABASE=C:\test.fdb
-set PDO_FIREBIRD_TEST_DSN=firebird:dbname=%PDO_FIREBIRD_TEST_DATABASE%
-set PDO_FIREBIRD_TEST_USER=SYSDBA
-set PDO_FIREBIRD_TEST_PASS=phpfi
-echo create database '%PDO_FIREBIRD_TEST_DATABASE%' user '%PDO_FIREBIRD_TEST_USER%' password '%PDO_FIREBIRD_TEST_PASS%';> C:\Firebird\setup.sql
-C:\Firebird\instsvc.exe install -n TestInstance
-C:\Firebird\isql -q -i C:\Firebird\setup.sql
-C:\Firebird\instsvc.exe start -n TestInstance
-if %errorlevel% neq 0 exit /b 3
-path C:\Firebird;%PATH%
-
 rem prepare for ext/openssl
 rmdir /s /q C:\OpenSSL-Win32 >NUL 2>NUL
 rmdir /s /q C:\OpenSSL-Win64 >NUL 2>NUL
