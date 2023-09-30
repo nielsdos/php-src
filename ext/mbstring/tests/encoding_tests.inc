@@ -83,8 +83,10 @@ function identifyValidString($goodString, $encoding) {
 
 function identifyInvalidString($badString, $encoding) {
     $result = mb_check_encoding($badString, $encoding);
-    if ($result)
+    if ($result) {
+        var_dump($result);
         echo "mb_check_encoding passed on bad $encoding string: " . dbgPrint($badString) . PHP_EOL;
+    }
 }
 
 function testConversion($fromString, $toString, $fromEncoding, $toEncoding) {
