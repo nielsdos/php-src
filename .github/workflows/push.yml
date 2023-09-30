@@ -196,17 +196,6 @@ jobs:
         run: git config --global core.autocrlf false && git config --global core.eol lf
       - name: git checkout
         uses: actions/checkout@v3
-      - name: Setup MySQL
-        run: |
-          choco install mysql -y --no-progress --params="/port:3306"
-          mysql.exe --port=3306 --user=root --password="" -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'Password12!'; FLUSH PRIVILEGES;"
-      - name: Setup MSSQL
-        run: |
-          choco install sql-server-express -y --no-progress --install-arguments="/SECURITYMODE=SQL /SAPWD=Password12!"
-      - name: Setup PostgreSQL
-        run: |
-          Set-Service -Name "postgresql-x64-14" -StartupType manual -Status Running
-          pwsh -Command { $env:PGPASSWORD="root"; & "$env:PGBIN\psql" -U postgres -c "ALTER USER postgres WITH PASSWORD 'Password12!';" }
       - name: Build
         run: .github/scripts/windows/build.bat
       - name: Test
