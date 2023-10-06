@@ -13,6 +13,7 @@ if "%BRANCH%" neq "master" (
 ) else (
 	set STABILITY=staging
 )
+echo %STABILITY%
 set DEPS_DIR=%PHP_BUILD_CACHE_BASE_DIR%\deps-%BRANCH%-%PHP_SDK_VS%-%PHP_SDK_ARCH%
 if not exist "%DEPS_DIR%" (
 	echo "%DEPS_DIR%" doesn't exist
