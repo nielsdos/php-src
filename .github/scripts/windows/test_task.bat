@@ -32,8 +32,8 @@ set PDO_MYSQL_TEST_HOST=%MYSQL_TEST_HOST%
 set PDO_MYSQL_TEST_PORT=%MYSQL_TEST_PORT%
 set PDO_MYSQL_TEST_DSN=mysql:host=%PDO_MYSQL_TEST_HOST%;port=%PDO_MYSQL_TEST_PORT%;dbname=test
 set TMP_MYSQL_BIN=C:\mysql\bin
-"%TMP_MYSQL_BIN%\mysql.exe" --host=%PDO_MYSQL_TEST_HOST% --port=%MYSQL_TEST_PORT% --user=%MYSQL_TEST_USER% --password=%MYSQL_TEST_PASSWD% -e "CREATE DATABASE IF NOT EXISTS test"
-rem if %errorlevel% neq 0 exit /b 3
+"%TMP_MYSQL_BIN%\mysql.exe" --verbose --host=%PDO_MYSQL_TEST_HOST% --port=%MYSQL_TEST_PORT% --user=%MYSQL_TEST_USER% --password=%MYSQL_TEST_PASSWD% -e "CREATE DATABASE IF NOT EXISTS test"
+if %errorlevel% neq 0 exit /b 3
 
 rem setup PostgreSQL related exts
 set PGUSER=postgres
@@ -43,7 +43,7 @@ echo ^<?php $conn_str = "host=127.0.0.1 dbname=test port=5432 user=%PGUSER% pass
 set PDO_PGSQL_TEST_DSN=pgsql:host=127.0.0.1 port=5432 dbname=test user=%PGUSER% password=%PGPASSWORD%
 set TMP_POSTGRESQL_BIN=%PGBIN%
 "%TMP_POSTGRESQL_BIN%\createdb.exe" test
-rem if %errorlevel% neq 0 exit /b 3
+if %errorlevel% neq 0 exit /b 3
 
 rem setup ODBC related exts
 set ODBC_TEST_USER=sa
@@ -62,7 +62,7 @@ echo create database '%PDO_FIREBIRD_TEST_DATABASE%' user '%PDO_FIREBIRD_TEST_USE
 C:\Firebird\instsvc.exe install -n TestInstance
 C:\Firebird\isql -q -i C:\Firebird\setup.sql
 C:\Firebird\instsvc.exe start -n TestInstance
-rem if %errorlevel% neq 0 exit /b 3
+if %errorlevel% neq 0 exit /b 3
 path C:\Firebird;%PATH%
 
 rem prepare for ext/openssl
