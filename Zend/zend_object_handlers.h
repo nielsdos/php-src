@@ -229,6 +229,11 @@ ZEND_API void rebuild_object_properties(zend_object *zobj);
 
 ZEND_API HashTable *zend_std_build_object_properties_array(zend_object *zobj);
 
+struct _zend_property_info;
+typedef struct _zend_property_info zend_property_info;
+
+ZEND_API zend_property_info *zend_get_parent_private_property(zend_class_entry *scope, const zend_class_entry *ce, zend_string *member);
+
 /* Handler for objects that cannot be meaningfully compared.
  * Only objects with the same identity will be considered equal. */
 ZEND_API int zend_objects_not_comparable(zval *o1, zval *o2);

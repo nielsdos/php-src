@@ -685,7 +685,7 @@ static zend_property_info* zend_get_known_property_info(const zend_op_array *op_
 			if (ce == op_array->scope) {
 				return info;
 			} else {
-				return NULL;
+				return zend_get_parent_private_property(op_array->scope, ce, member);
 			}
 		} else if ((info->flags & ZEND_ACC_PROTECTED)
 				&& instanceof_function_slow(ce, info->ce)) {

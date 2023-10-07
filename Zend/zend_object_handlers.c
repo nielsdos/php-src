@@ -244,7 +244,7 @@ static zend_never_inline int is_protected_compatible_scope(const zend_class_entr
 }
 /* }}} */
 
-static zend_never_inline zend_property_info *zend_get_parent_private_property(zend_class_entry *scope, const zend_class_entry *ce, zend_string *member) /* {{{ */
+ZEND_API zend_never_inline zend_property_info *zend_get_parent_private_property(zend_class_entry *scope, const zend_class_entry *ce, zend_string *member) /* {{{ */
 {
 	zval *zv;
 	zend_property_info *prop_info;
