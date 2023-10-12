@@ -5562,14 +5562,18 @@ ZEND_VM_HOT_HANDLER(64, ZEND_RECV_INIT, NUM, CONST, CACHE_SLOT)
 				ZVAL_COPY_VALUE(param, cache_val);
 			} else {
 				SAVE_OPLINE();
-				ZVAL_COPY(param, default_value);
+				bool refcounted = Z_REFCOUNTED_P(default_value);
+				ZVAL_COPY_VALUE(param, default_value);
+				if (refcounted) {
+					Z_ADDREF_P(param);
+				}
 				zend_ast_evaluate_ctx ctx = {0};
 				if (UNEXPECTED(zval_update_constant_with_ctx(param, EX(func)->op_array.scope, &ctx) != SUCCESS)) {
 					zval_ptr_dtor_nogc(param);
 					ZVAL_UNDEF(param);
 					HANDLE_EXCEPTION();
 				}
-				if (!Z_REFCOUNTED_P(param) && !ctx.had_side_effects) {
+				if (!refcounted && !ctx.had_side_effects) {
 					ZVAL_COPY_VALUE(cache_val, param);
 				}
 			}
