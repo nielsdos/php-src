@@ -210,6 +210,7 @@ ZEND_DECLARE_MODULE_GLOBALS(soap)
 static void (*old_error_handler)(int, zend_string *, const uint32_t, zend_string *);
 
 PHP_RINIT_FUNCTION(soap);
+PHP_RSHUTDOWN_FUNCTION(soap);
 PHP_MINIT_FUNCTION(soap);
 PHP_MSHUTDOWN_FUNCTION(soap);
 PHP_MINFO_FUNCTION(soap);
@@ -223,7 +224,7 @@ zend_module_entry soap_module_entry = {
   PHP_MINIT(soap),
   PHP_MSHUTDOWN(soap),
   PHP_RINIT(soap),
-  NULL,
+  PHP_RSHUTDOWN(soap),
   PHP_MINFO(soap),
 #ifdef STANDARD_MODULE_HEADER
   PHP_SOAP_VERSION,
@@ -372,6 +373,28 @@ PHP_RINIT_FUNCTION(soap)
 	SOAP_GLOBAL(class_map) = NULL;
 	SOAP_GLOBAL(features) = 0;
 	SOAP_GLOBAL(ref_map) = NULL;
+	return SUCCESS;
+}
+
+PHP_RSHUTDOWN_FUNCTION(soap)
+{
+#if defined(HAVE_PHP_SESSION) && !defined(COMPILE_DL_SESSION)
+	zval *session_vars = &PS(http_session_vars);
+	zval *tmp_soap_p;
+	ZVAL_DEREF(session_vars);
+	if (Z_TYPE_P(session_vars) == IS_ARRAY &&
+		(tmp_soap_p = zend_hash_str_find(Z_ARRVAL_P(session_vars), "_bogus_session_name", sizeof("_bogus_session_name")-1)) != NULL) {
+		/* Encode as a string to delay unserialization */
+		smart_str buf = {0};
+		php_serialize_data_t var_hash;
+		PHP_VAR_SERIALIZE_INIT(var_hash);
+		php_var_serialize(&buf, tmp_soap_p, &var_hash);
+		PHP_VAR_SERIALIZE_DESTROY(var_hash);
+		zval_ptr_dtor(tmp_soap_p);
+		zend_string *serialized = smart_str_extract_ex(&buf, true);
+		ZVAL_STR(tmp_soap_p, serialized);
+	}
+#endif
 	return SUCCESS;
 }
 
@@ -1319,10 +1342,22 @@ PHP_METHOD(SoapServer, handle)
 			session_vars = &PS(http_session_vars);
 			ZVAL_DEREF(session_vars);
 			if (Z_TYPE_P(session_vars) == IS_ARRAY &&
-			    (tmp_soap_p = zend_hash_str_find(Z_ARRVAL_P(session_vars), "_bogus_session_name", sizeof("_bogus_session_name")-1)) != NULL &&
-			    Z_TYPE_P(tmp_soap_p) == IS_OBJECT &&
-			    Z_OBJCE_P(tmp_soap_p) == service->soap_class.ce) {
-				soap_obj = tmp_soap_p;
+			    (tmp_soap_p = zend_hash_str_find(Z_ARRVAL_P(session_vars), "_bogus_session_name", sizeof("_bogus_session_name")-1)) != NULL) {
+				if (Z_TYPE_P(tmp_soap_p) == IS_OBJECT && Z_OBJCE_P(tmp_soap_p) == service->soap_class.ce) {
+					soap_obj = tmp_soap_p;
+				} else if (Z_TYPE_P(tmp_soap_p) == IS_STRING) {
+					php_unserialize_data_t var_hash;
+					PHP_VAR_UNSERIALIZE_INIT(var_hash);
+					const unsigned char *p = (const unsigned char *) Z_STRVAL_P(tmp_soap_p);
+					const size_t l = Z_STRLEN_P(tmp_soap_p);
+					if (php_var_unserialize(&tmp_soap, &p, p + l, &var_hash)
+						&& Z_TYPE(tmp_soap) == IS_OBJECT && Z_OBJCE(tmp_soap) == service->soap_class.ce) {
+						soap_obj = &tmp_soap;
+						zend_string_release(Z_STR_P(tmp_soap_p));
+						ZVAL_OBJ(tmp_soap_p, Z_OBJ_P(soap_obj));
+					}
+					PHP_VAR_UNSERIALIZE_DESTROY(var_hash);
+				}
 			}
 		}
 #endif
