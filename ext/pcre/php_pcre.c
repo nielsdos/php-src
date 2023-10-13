@@ -1006,7 +1006,7 @@ static inline void add_offset_pair(
 	if (name) {
 		add_named(result, name, &match_pair, start_offset == PCRE2_UNSET);
 	}
-	zend_hash_next_index_insert(Z_ARRVAL_P(result), &match_pair);
+	zend_hash_next_index_insert_new(Z_ARRVAL_P(result), &match_pair);
 }
 /* }}} */
 
@@ -1036,7 +1036,7 @@ static void populate_subpat_array(
 				if (subpat_names[i]) {
 					add_named(subpats, subpat_names[i], &val, offsets[2*i] == PCRE2_UNSET);
 				}
-				zend_hash_next_index_insert(Z_ARRVAL_P(subpats), &val);
+				zend_hash_next_index_insert_new(Z_ARRVAL_P(subpats), &val);
 			}
 			if (unmatched_as_null) {
 				for (i = count; i < num_subpats; i++) {
@@ -1044,7 +1044,7 @@ static void populate_subpat_array(
 					if (subpat_names[i]) {
 						zend_hash_add(Z_ARRVAL_P(subpats), subpat_names[i], &val);
 					}
-					zend_hash_next_index_insert(Z_ARRVAL_P(subpats), &val);
+					zend_hash_next_index_insert_new(Z_ARRVAL_P(subpats), &val);
 				}
 			}
 		}
@@ -1063,7 +1063,7 @@ static void populate_subpat_array(
 			for (i = 0; i < count; i++) {
 				populate_match_value(
 					&val, subject, offsets[2*i], offsets[2*i+1], unmatched_as_null);
-				zend_hash_next_index_insert(Z_ARRVAL_P(subpats), &val);
+				zend_hash_next_index_insert_new(Z_ARRVAL_P(subpats), &val);
 			}
 			if (unmatched_as_null) {
 				for (i = count; i < num_subpats; i++) {
@@ -1220,6 +1220,7 @@ PHPAPI void php_pcre_match_impl(pcre_cache_entry *pce, zend_string *subject_str,
 		match_sets = (zval *)safe_emalloc(num_subpats, sizeof(zval), 0);
 		for (i=0; i<num_subpats; i++) {
 			array_init(&match_sets[i]);
+			zend_hash_real_init_packed(Z_ARRVAL(match_sets[i]));
 		}
 	}
 
@@ -1334,7 +1335,7 @@ matched:
 							&result_set, subject, offsets, subpat_names,
 							num_subpats, count, mark, flags);
 						/* And add it to the output array */
-						zend_hash_next_index_insert(Z_ARRVAL_P(subpats), &result_set);
+						zend_hash_next_index_insert_new(Z_ARRVAL_P(subpats), &result_set);
 					}
 				} else {			/* single pattern matching */
 					/* For each subpattern, insert it into the subpatterns array. */
@@ -1415,11 +1416,11 @@ error:
 					zend_hash_update(Z_ARRVAL_P(subpats), subpat_names[i], &match_sets[i]);
 					Z_ADDREF(match_sets[i]);
 				}
-				zend_hash_next_index_insert(Z_ARRVAL_P(subpats), &match_sets[i]);
+				zend_hash_next_index_insert_new(Z_ARRVAL_P(subpats), &match_sets[i]);
 			}
 		} else {
 			for (i = 0; i < num_subpats; i++) {
-				zend_hash_next_index_insert(Z_ARRVAL_P(subpats), &match_sets[i]);
+				zend_hash_next_index_insert_new(Z_ARRVAL_P(subpats), &match_sets[i]);
 			}
 		}
 		efree(match_sets);
