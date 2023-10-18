@@ -1609,15 +1609,16 @@ static zend_always_inline void _object_properties_init(zend_object *object, zend
 		zval *dst = object->properties_table;
 		zval *end = src + class_type->default_properties_count;
 
-		if (UNEXPECTED(class_type->type == ZEND_INTERNAL_CLASS)) {
+		if (EXPECTED(class_type->ce_flags & ZEND_ACC_HAS_RC_PROPS)) {
 			do {
-				ZVAL_COPY_OR_DUP_PROP(dst, src);
+				ZVAL_COPY_PROP(dst, src);
 				src++;
 				dst++;
 			} while (src != end);
 		} else {
+			/* zend_declare_typed_property() disallows refcounted default property values in internal classes */
 			do {
-				ZVAL_COPY_PROP(dst, src);
+				ZVAL_COPY_VALUE_PROP(dst, src);
 				src++;
 				dst++;
 			} while (src != end);
@@ -4377,6 +4378,9 @@ ZEND_API zend_property_info *zend_declare_typed_property(zend_class_entry *ce, z
 				ce->properties_info_table = perealloc(ce->properties_info_table, sizeof(zend_property_info *) * ce->default_properties_count, 1);
 				ce->properties_info_table[ce->default_properties_count - 1] = property_info;
 			}
+		}
+		if (Z_REFCOUNTED_P(property)) {
+			ce->ce_flags |= ZEND_ACC_HAS_RC_PROPS;
 		}
 		property_default_ptr = &ce->default_properties_table[OBJ_PROP_TO_NUM(property_info->offset)];
 		ZVAL_COPY_VALUE(property_default_ptr, property);
