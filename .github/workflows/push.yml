@@ -40,9 +40,6 @@ permissions:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.url || github.run_id }}
   cancel-in-progress: true
-env:
-  CC: ccache gcc
-  CXX: ccache g++
 jobs:
   LINUX_X64:
     services:
@@ -207,6 +204,52 @@ jobs:
         run: .github/scripts/windows/build.bat
       - name: Test
         run: .github/scripts/windows/test.bat
+  COVERAGE_DEBUG_NTS:
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test
+    runs-on: ubuntu-22.04
+    steps:
+      - name: git checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create MSSQL container
+        uses: ./.github/actions/setup-mssql
+      - name: apt
+        uses: ./.github/actions/apt-x64
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: "${{github.job}}-cov-${{hashFiles('main/php_version.h')}}"
+          append-timestamp: false
+      - name: Install gcovr
+        run: sudo -H pip install gcovr
+      - name: ./configure
+        uses: ./.github/actions/configure-x64
+        with:
+          configurationParameters: --enable-debug --disable-zts --enable-gcov
+      - name: make
+        run: make -j$(/usr/bin/nproc) >/dev/null
+      - name: make install
+        uses: ./.github/actions/install-linux
+      - name: Setup
+        uses: ./.github/actions/setup-x64
+      # We only test with OpCache, the difference in coverage is negligible
+      - name: Test OpCache
+        uses: ./.github/actions/test-linux
+        with:
+          jitType: tracing
+          runTestsParameters: >-
+            -d zend_extension=opcache.so
+            -d opcache.enable_cli=1
+      - name: Upload Test Coverage to Codecov.io
+        if: always()
+        run: bash <(curl -s https://codecov.io/bash)
   BENCHMARKING:
     name: BENCHMARKING
     if: github.repository_owner == 'php' || github.event_name == 'pull_request'
