@@ -211,6 +211,11 @@ jobs:
         uses: ./.github/actions/setup-mssql
       - name: apt
         uses: ./.github/actions/apt-x64
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: "${{github.job}}-cov-${{hashFiles('main/php_version.h')}}"
+          append-timestamp: false
       - name: Install gcovr
         run: sudo -H pip install gcovr
       - name: ./configure
