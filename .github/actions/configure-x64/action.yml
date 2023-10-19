@@ -9,7 +9,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - shell: bash
+    - shell: bash +e
       run: |
         set -x
         set +e
