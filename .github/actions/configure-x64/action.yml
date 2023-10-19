@@ -9,10 +9,9 @@ inputs:
 runs:
   using: composite
   steps:
-    - shell: bash +e
+    - shell: bash
       run: |
         set -x
-        set +e
         ./buildconf --force
         ./configure \
           --enable-option-checking=fatal \

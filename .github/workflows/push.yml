@@ -231,6 +231,9 @@ jobs:
           runTestsParameters: >-
             -d zend_extension=opcache.so
             -d opcache.enable_cli=1
+      - name: debug
+        if: always()
+        run: cat config.log
       - name: Upload Test Coverage to Codecov.io
         if: always()
         run: bash <(curl -s https://codecov.io/bash)
