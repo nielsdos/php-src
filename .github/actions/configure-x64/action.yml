@@ -12,6 +12,7 @@ runs:
     - shell: bash
       run: |
         set -x
+        set +e
         ./buildconf --force
         ./configure \
           --enable-option-checking=fatal \
@@ -83,4 +84,4 @@ runs:
           ${{ inputs.skipSlow == 'false' && '--with-pdo-firebird' || '' }} \
           ${{ inputs.skipSlow == 'false' && '--with-pdo-dblib' || '' }} \
           --enable-werror \
-          ${{ inputs.configurationParameters }} && cat config.log
+          ${{ inputs.configurationParameters }}
