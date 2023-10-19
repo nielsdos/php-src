@@ -217,8 +217,6 @@ jobs:
         uses: ./.github/actions/configure-x64
         with:
           configurationParameters: --enable-debug --disable-zts --enable-gcov
-      - name: debug
-        run: cat config.log
       - name: make
         run: make -j$(/usr/bin/nproc) >/dev/null
       - name: make install

@@ -83,4 +83,4 @@ runs:
           ${{ inputs.skipSlow == 'false' && '--with-pdo-firebird' || '' }} \
           ${{ inputs.skipSlow == 'false' && '--with-pdo-dblib' || '' }} \
           --enable-werror \
-          ${{ inputs.configurationParameters }}
+          ${{ inputs.configurationParameters }} && cat config.log
