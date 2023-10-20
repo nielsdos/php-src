@@ -48,6 +48,10 @@ PHP 8.4 INTERNALS UPGRADE NOTES
      should either be inlined and undefined behavior fixed or it should be
      replaced by a non-biased scaler.
 
+ c. ext/libxml
+   - Added php_libxml_pretend_ctx_error_ex() to emit errors as if they had come
+     from libxml.
+
 ========================
 4. OpCode changes
 ========================
