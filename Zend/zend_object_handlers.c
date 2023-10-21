@@ -325,8 +325,7 @@ static zend_always_inline uintptr_t zend_get_property_offset(zend_class_entry *c
 		return (uintptr_t)CACHED_PTR_EX(cache_slot + 1);
 	}
 
-	if (UNEXPECTED(zend_hash_num_elements(&ce->properties_info) == 0)
-	 || UNEXPECTED((zv = zend_hash_find(&ce->properties_info, member)) == NULL)) {
+	if (UNEXPECTED((zv = zend_hash_find(&ce->properties_info, member)) == NULL)) {
 		if (UNEXPECTED(ZSTR_VAL(member)[0] == '\0') && ZSTR_LEN(member) != 0) {
 			if (!silent) {
 				zend_bad_property_name();

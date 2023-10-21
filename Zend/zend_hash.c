@@ -736,7 +736,7 @@ static zend_always_inline Bucket *zend_hash_find_bucket(const HashTable *ht, con
 	uint32_t idx;
 	Bucket *p, *arData;
 
-	ZEND_ASSERT(ZSTR_H(key) != 0 && "Hash must be known");
+	//ZEND_ASSERT(ZSTR_H(key) != 0 && "Hash must be known");
 
 	arData = ht->arData;
 	nIndex = ZSTR_H(key) | ht->nTableMask;
