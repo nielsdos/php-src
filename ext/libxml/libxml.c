@@ -196,6 +196,7 @@ static void php_libxml_unlink_entity_decl(xmlEntityPtr entity)
 static void php_libxml_node_free(xmlNodePtr node)
 {
 	if(node) {
+		printf("about to free %d\n", node->type);
 		if (node->_private != NULL) {
 			((php_libxml_node_ptr *) node->_private)->node = NULL;
 		}
@@ -250,7 +251,7 @@ static void php_libxml_node_free(xmlNodePtr node)
 					xmlHashScan(dtd->pentities, php_libxml_unlink_entity, dtd->pentities);
 					/* No unlinking of notations, see remark above at case XML_NOTATION_NODE. */
 				}
-				xmlFreeNode(node);
+				xmlFreeDtd(dtd);
 				break;
 			}
 			case XML_ELEMENT_NODE:
@@ -297,6 +298,7 @@ PHP_LIBXML_API void php_libxml_node_free_list(xmlNodePtr node)
 	xmlNodePtr curnode;
 
 	if (node != NULL) {
+		printf("about to free list %d\n", node->type);
 		curnode = node;
 		while (curnode != NULL) {
 			/* If the _private field is set, there's still a userland reference somewhere. We'll delay freeing in this case. */
@@ -1375,7 +1377,7 @@ PHP_LIBXML_API void php_libxml_node_free_resource(xmlNodePtr node)
 	if (!node) {
 		return;
 	}
-
+printf("free resource node %d %p\n", node->type, node->parent);
 	switch (node->type) {
 		case XML_DOCUMENT_NODE:
 		case XML_HTML_DOCUMENT_NODE:
