@@ -99,7 +99,7 @@ function runLaravelDemo(bool $jit): array {
     runPhpCommand([$dir . '/artisan', 'event:cache']);
     runPhpCommand([$dir . '/artisan', 'route:cache']);
     runPhpCommand([$dir . '/artisan', 'view:cache']);
-    return runValgrindPhpCgiCommand('laravel-demo', [$dir . '/public/index.php'], cwd: $dir, jit: $jit, warmup: 50, repeat: 100);
+    return runValgrindPhpCgiCommand('laravel-demo', [$dir . '/public/index.php'], cwd: $dir, jit: $jit, warmup: 50, repeat: 200);
 }
 
 function runPhpCommand(array $args, ?string $cwd = null): ProcessResult {
