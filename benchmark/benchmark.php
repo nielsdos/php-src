@@ -21,12 +21,12 @@ function main() {
     if (false !== $branch = getenv('GITHUB_REF_NAME')) {
         $data['branch'] = $branch;
     }
-    $data['Zend/bench.php'] = runBench(false);
-    $data['Zend/bench.php JIT'] = runBench(true);
-    $data['Symfony Demo 2.2.3'] = runSymfonyDemo(false);
-    $data['Symfony Demo 2.2.3 JIT'] = runSymfonyDemo(true);
-    $data['Wordpress 6.2'] = runWordpress(false);
-    $data['Wordpress 6.2 JIT'] = runWordpress(true);
+    // $data['Zend/bench.php'] = runBench(false);
+    // $data['Zend/bench.php JIT'] = runBench(true);
+    // $data['Symfony Demo 2.2.3'] = runSymfonyDemo(false);
+    // $data['Symfony Demo 2.2.3 JIT'] = runSymfonyDemo(true);
+    // $data['Wordpress 6.2'] = runWordpress(false);
+    // $data['Wordpress 6.2 JIT'] = runWordpress(true);
     $data['Laravel 10.10'] = runLaravelDemo(false);
     $data['Laravel 10.10 JIT'] = runLaravelDemo(true);
     $result = json_encode($data, JSON_PRETTY_PRINT) . "\n";

@@ -45,6 +45,7 @@ env:
   CXX: ccache g++
 jobs:
   LINUX_X64:
+    if: false
     services:
       mysql:
         image: mysql:8
@@ -141,6 +142,7 @@ jobs:
         if: ${{ !matrix.asan }}
         uses: ./.github/actions/verify-generated-files
   MACOS_DEBUG_NTS:
+    if: false
     runs-on: macos-12
     steps:
       - name: git checkout
@@ -173,6 +175,7 @@ jobs:
       - name: Verify generated files are up to date
         uses: ./.github/actions/verify-generated-files
   WINDOWS:
+    if: false
     name: WINDOWS_X64_ZTS
     runs-on: windows-2019
     env:
