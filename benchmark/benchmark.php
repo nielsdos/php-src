@@ -99,7 +99,7 @@ function runLaravelDemo(bool $jit): array {
     runPhpCommand([$dir . '/artisan', 'event:cache']);
     runPhpCommand([$dir . '/artisan', 'route:cache']);
     runPhpCommand([$dir . '/artisan', 'view:cache']);
-    return runValgrindPhpCgiCommand('laravel-demo', [$dir . '/public/index.php'], cwd: $dir, jit: $jit, warmup: 50, repeat: 200);
+    return runValgrindPhpCgiCommand('laravel-demo', [$dir . '/public/index.php'], cwd: $dir, jit: $jit, warmup: 50, repeat: 100);
 }
 
 function runPhpCommand(array $args, ?string $cwd = null): ProcessResult {
@@ -133,6 +133,7 @@ function runValgrindPhpCgiCommand(
         '-d opcache.enable=1',
         '-d opcache.jit_buffer_size=' . ($jit ? '128M' : '0'),
         '-d opcache.validate_timestamps=0',
+        '-d opcache.blacklist_filename=bootstrap/cache',
         ...$args,
     ]);
     $instructions = extractInstructionsFromValgrindOutput($process->stderr);
