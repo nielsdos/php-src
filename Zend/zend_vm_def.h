@@ -2715,16 +2715,22 @@ ZEND_VM_HANDLER(22, ZEND_ASSIGN, VAR|CV, CONST|TMP|VAR|CV, SPEC(RETVAL))
 	variable_ptr = GET_OP1_ZVAL_PTR_PTR_UNDEF(BP_VAR_W);
 
 	if (!ZEND_VM_SPEC || UNEXPECTED(RETURN_VALUE_USED(opline))) {
-		zend_refcounted *garbage = NULL;
-
-		value = zend_assign_to_variable_ex(variable_ptr, value, OP2_TYPE, EX_USES_STRICT_TYPES(), &garbage);
+		// zend_refcounted *garbage = NULL;
+// 
+		// value = zend_assign_to_variable_ex(variable_ptr, value, OP2_TYPE, EX_USES_STRICT_TYPES(), &garbage);
+		// if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
+			// ZVAL_COPY(EX_VAR(opline->result.var), value);
+		// }
+		// if (garbage) {
+			// GC_DTOR_NO_REF(garbage);
+		// }
 		if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
-			ZVAL_COPY(EX_VAR(opline->result.var), value);
-		}
-		if (garbage) {
-			GC_DTOR_NO_REF(garbage);
+			zend_assign_to_variable2(variable_ptr, EX_VAR(opline->result.var), value, OP2_TYPE, EX_USES_STRICT_TYPES());
+		} else {
+			goto fallback;
 		}
 	} else {
+fallback:;
 		value = zend_assign_to_variable(variable_ptr, value, OP2_TYPE, EX_USES_STRICT_TYPES());
 	}
 	FREE_OP1();

@@ -136,17 +136,17 @@ static zend_always_inline void zend_copy_to_variable(zval *variable_ptr, zval *v
 
 	ZVAL_COPY_VALUE(variable_ptr, value);
 	if (ZEND_CONST_COND(value_type  == IS_CONST, 0)) {
-		if (UNEXPECTED(Z_OPT_REFCOUNTED_P(variable_ptr))) {
+		if (UNEXPECTED(Z_REFCOUNTED_P(variable_ptr))) {
 			Z_ADDREF_P(variable_ptr);
 		}
 	} else if (value_type & (IS_CONST|IS_CV)) {
-		if (Z_OPT_REFCOUNTED_P(variable_ptr)) {
+		if (Z_REFCOUNTED_P(variable_ptr)) {
 			Z_ADDREF_P(variable_ptr);
 		}
 	} else if (ZEND_CONST_COND(value_type == IS_VAR, 1) && UNEXPECTED(ref)) {
 		if (UNEXPECTED(GC_DELREF(ref) == 0)) {
 			efree_size(ref, sizeof(zend_reference));
-		} else if (Z_OPT_REFCOUNTED_P(variable_ptr)) {
+		} else if (Z_REFCOUNTED_P(variable_ptr)) {
 			Z_ADDREF_P(variable_ptr);
 		}
 	}
@@ -177,6 +177,40 @@ static zend_always_inline zval* zend_assign_to_variable(zval *variable_ptr, zval
 
 	zend_copy_to_variable(variable_ptr, value, value_type);
 	return variable_ptr;
+}
+
+static zend_always_inline void zend_assign_to_variable2(zval *variable_ptr, zval *return_value, zval *value, uint8_t value_type, bool strict)
+{
+	do {
+		if (UNEXPECTED(Z_REFCOUNTED_P(variable_ptr))) {
+			zend_refcounted *garbage;
+
+			if (Z_ISREF_P(variable_ptr)) {
+				if (UNEXPECTED(ZEND_REF_HAS_TYPE_SOURCES(Z_REF_P(variable_ptr)))) {
+					zval *ret = zend_assign_to_typed_ref_ex(variable_ptr, value, value_type, strict, &garbage);
+					ZVAL_COPY(return_value, ret);
+					if (garbage) {
+						GC_DTOR_NO_REF(garbage);
+					}
+					return;
+				}
+
+				variable_ptr = Z_REFVAL_P(variable_ptr);
+				if (EXPECTED(!Z_REFCOUNTED_P(variable_ptr))) {
+					break;
+				}
+			}
+			garbage = Z_COUNTED_P(variable_ptr);
+			zend_copy_to_variable(variable_ptr, value, value_type);
+			ZVAL_COPY(return_value, variable_ptr);
+			GC_DTOR_NO_REF(garbage);
+			return;
+		}
+	} while (0);
+
+	zend_copy_to_variable(variable_ptr, value, value_type);
+	ZVAL_COPY(return_value, variable_ptr);
+	return;
 }
 
 static zend_always_inline zval* zend_assign_to_variable_ex(zval *variable_ptr, zval *value, zend_uchar value_type, bool strict, zend_refcounted **garbage_ptr)
