@@ -3999,13 +3999,13 @@ static ZEND_OPCODE_HANDLER_RET ZEND_FASTCALL ZEND_RECV_VARIADIC_SPEC_UNUSED_HAND
 						HANDLE_EXCEPTION();
 					}
 
-					if (Z_OPT_REFCOUNTED_P(param)) Z_ADDREF_P(param);
+					Z_TRY_ADDREF_P(param);
 					ZEND_HASH_FILL_ADD(param);
 					param++;
 				} while (++arg_num <= arg_count);
 			} else {
 				do {
-					if (Z_OPT_REFCOUNTED_P(param)) Z_ADDREF_P(param);
+					Z_TRY_ADDREF_P(param);
 					ZEND_HASH_FILL_ADD(param);
 					param++;
 				} while (++arg_num <= arg_count);
@@ -4040,7 +4040,7 @@ static ZEND_OPCODE_HANDLER_RET ZEND_FASTCALL ZEND_RECV_VARIADIC_SPEC_UNUSED_HAND
 		}
 	}
 
-	ZEND_VM_NEXT_OPCODE_CHECK_EXCEPTION();
+	ZEND_VM_NEXT_OPCODE();
 }
 
 static ZEND_OPCODE_HANDLER_RET ZEND_FASTCALL ZEND_INIT_DYNAMIC_CALL_SPEC_CV_HANDLER(ZEND_OPCODE_HANDLER_ARGS)

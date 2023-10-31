@@ -5619,13 +5619,13 @@ ZEND_VM_HANDLER(164, ZEND_RECV_VARIADIC, NUM, UNUSED, CACHE_SLOT)
 						HANDLE_EXCEPTION();
 					}
 
-					if (Z_OPT_REFCOUNTED_P(param)) Z_ADDREF_P(param);
+					Z_TRY_ADDREF_P(param);
 					ZEND_HASH_FILL_ADD(param);
 					param++;
 				} while (++arg_num <= arg_count);
 			} else {
 				do {
-					if (Z_OPT_REFCOUNTED_P(param)) Z_ADDREF_P(param);
+					Z_TRY_ADDREF_P(param);
 					ZEND_HASH_FILL_ADD(param);
 					param++;
 				} while (++arg_num <= arg_count);
@@ -5660,7 +5660,7 @@ ZEND_VM_HANDLER(164, ZEND_RECV_VARIADIC, NUM, UNUSED, CACHE_SLOT)
 		}
 	}
 
-	ZEND_VM_NEXT_OPCODE_CHECK_EXCEPTION();
+	ZEND_VM_NEXT_OPCODE();
 }
 
 ZEND_VM_COLD_CONST_HANDLER(52, ZEND_BOOL, CONST|TMPVAR|CV, ANY)
