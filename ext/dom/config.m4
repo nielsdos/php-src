@@ -21,10 +21,10 @@ if test "$PHP_DOM" != "no"; then
                             nodelist.c text.c comment.c \
                             entityreference.c \
                             notation.c xpath.c dom_iterators.c \
-                            namednodemap.c],
+                            namednodemap.c xpath_callbacks.c],
                             $ext_shared)
     PHP_SUBST(DOM_SHARED_LIBADD)
-    PHP_INSTALL_HEADERS([ext/dom/xml_common.h])
+    PHP_INSTALL_HEADERS([ext/dom/xml_common.h ext/dom/xpath_callbacks.h])
     PHP_ADD_EXTENSION_DEP(dom, libxml)
   ])
 fi
