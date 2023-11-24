@@ -1558,16 +1558,22 @@ void php_dom_reconcile_attribute_namespace_after_insertion(xmlAttrPtr attrp)
 
 static void dom_libxml_reconcile_ensure_namespaces_are_declared(xmlNodePtr nodep)
 {
-	/* Ideally we'd use the DOM-wrapped version, but we cannot: https://github.com/php/php-src/pull/12308. */
-#if 0
-	/* Put on stack to avoid allocation.
-	 * Although libxml2 currently does not use this for the reconciliation, it still
-	 * makes sense to do this just in case libxml2's internal change in the future. */
-	xmlDOMWrapCtxt dummy_ctxt = {0};
-	xmlDOMWrapReconcileNamespaces(&dummy_ctxt, nodep, /* options */ 0);
-#else
+	/* Ideally we'd always have use the DOM-wrapped version, but we cannot: https://github.com/php/php-src/pull/12308.
+	 * So only use it for the new API for HTML documents. */
+	if (nodep->doc && nodep->doc->type == XML_HTML_DOCUMENT_NODE) {
+		dom_object *dom = php_dom_object_get_data(nodep);
+		if (dom && dom->document->is_modern_api_class) {
+			/* Put on stack to avoid allocation.
+			 * Although libxml2 currently does not use this for the reconciliation, it still
+			 * makes sense to do this just in case libxml2's internal change in the future. */
+			xmlDOMWrapCtxt dummy_ctxt = {0};
+			xmlDOMWrapReconcileNamespaces(&dummy_ctxt, nodep, /* options */ 0);
+			return;
+		}
+	}
+
+	/* Fallback */
 	xmlReconciliateNs(nodep->doc, nodep);
-#endif
 }
 
 void dom_reconcile_ns(xmlDocPtr doc, xmlNodePtr nodep) /* {{{ */
