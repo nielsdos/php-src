@@ -1092,9 +1092,10 @@ static zend_always_inline void *zend_mm_alloc_large_ex(zend_mm_heap *heap, size_
 #if ZEND_MM_STAT
 	do {
 		size_t size = heap->size + pages_count * ZEND_MM_PAGE_SIZE;
-		size_t peak = MAX(heap->peak, size);
+		if (size > heap->peak) {
+			heap->peak = size;
+		}
 		heap->size = size;
-		heap->peak = peak;
 	} while (0);
 #endif
 	return ptr;
@@ -1301,9 +1302,10 @@ static zend_always_inline void *zend_mm_alloc_small(zend_mm_heap *heap, int bin_
 #if ZEND_MM_STAT
 	do {
 		size_t size = heap->size + bin_data_size[bin_num];
-		size_t peak = MAX(heap->peak, size);
 		heap->size = size;
-		heap->peak = peak;
+		if (size > heap->peak) {
+			heap->peak = size;
+		}
 	} while (0);
 #endif
 
@@ -1690,9 +1692,10 @@ static zend_always_inline void *zend_mm_realloc_heap(zend_mm_heap *heap, void *p
 #if ZEND_MM_STAT
 						do {
 							size_t size = heap->size + (new_size - old_size);
-							size_t peak = MAX(heap->peak, size);
+							if (size > heap->peak) {
+								heap->peak = size;
+							}
 							heap->size = size;
-							heap->peak = peak;
 						} while (0);
 #endif
 						chunk->free_pages -= new_pages_count - old_pages_count;
@@ -1867,9 +1870,10 @@ static void *zend_mm_alloc_huge(zend_mm_heap *heap, size_t size ZEND_FILE_LINE_D
 	} while (0);
 	do {
 		size_t size = heap->size + new_size;
-		size_t peak = MAX(heap->peak, size);
+		if (size > heap->peak) {
+			heap->peak = size;
+		}
 		heap->size = size;
-		heap->peak = peak;
 	} while (0);
 #elif ZEND_MM_LIMIT
 	heap->real_size += new_size;
