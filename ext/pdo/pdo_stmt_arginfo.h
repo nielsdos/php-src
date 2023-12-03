@@ -152,7 +152,6 @@ static zend_class_entry *register_class_PDOStatement(zend_class_entry *class_ent
 	ZVAL_UNDEF(&property_queryString_default_value);
 	zend_string *property_queryString_name = zend_string_init("queryString", sizeof("queryString") - 1, 1);
 	zend_declare_typed_property(class_entry, property_queryString_name, &property_queryString_default_value, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_MASK(MAY_BE_STRING));
-	zend_string_release(property_queryString_name);
 
 	return class_entry;
 }
@@ -169,7 +168,6 @@ static zend_class_entry *register_class_PDORow(void)
 	ZVAL_UNDEF(&property_queryString_default_value);
 	zend_string *property_queryString_name = zend_string_init("queryString", sizeof("queryString") - 1, 1);
 	zend_declare_typed_property(class_entry, property_queryString_name, &property_queryString_default_value, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_MASK(MAY_BE_STRING));
-	zend_string_release(property_queryString_name);
 
 	return class_entry;
 }

@@ -659,7 +659,7 @@ PHP_MINIT_FUNCTION(dom)
 	dom_object_namespace_node_handlers.free_obj = dom_object_namespace_node_free_storage;
 	dom_object_namespace_node_handlers.clone_obj = dom_object_namespace_node_clone_obj;
 
-	zend_hash_init(&classes, 0, NULL, NULL, 1);
+	zend_hash_init(&classes, 20, NULL, NULL, 1);
 
 	dom_domexception_class_entry = register_class_DOMException(zend_ce_exception);
 
@@ -673,7 +673,7 @@ PHP_MINIT_FUNCTION(dom)
 	dom_node_class_entry = register_class_DOMNode();
 	dom_node_class_entry->create_object = dom_objects_new;
 
-	zend_hash_init(&dom_node_prop_handlers, 0, NULL, dom_dtor_prop_handler, 1);
+	zend_hash_init(&dom_node_prop_handlers, 18, NULL, dom_dtor_prop_handler, 1);
 	dom_register_prop_handler(&dom_node_prop_handlers, "nodeName", sizeof("nodeName")-1, dom_node_node_name_read, NULL);
 	dom_register_prop_handler(&dom_node_prop_handlers, "nodeValue", sizeof("nodeValue")-1, dom_node_node_value_read, dom_node_node_value_write);
 	dom_register_prop_handler(&dom_node_prop_handlers, "nodeType", sizeof("nodeType")-1, dom_node_node_type_read, NULL);
@@ -697,7 +697,7 @@ PHP_MINIT_FUNCTION(dom)
 	dom_namespace_node_class_entry = register_class_DOMNameSpaceNode();
 	dom_namespace_node_class_entry->create_object = dom_objects_namespace_node_new;
 
-	zend_hash_init(&dom_namespace_node_prop_handlers, 0, NULL, dom_dtor_prop_handler, 1);
+	zend_hash_init(&dom_namespace_node_prop_handlers, 10, NULL, dom_dtor_prop_handler, 1);
 	dom_register_prop_handler(&dom_namespace_node_prop_handlers, "nodeName", sizeof("nodeName")-1, dom_node_node_name_read, NULL);
 	dom_register_prop_handler(&dom_namespace_node_prop_handlers, "nodeValue", sizeof("nodeValue")-1, dom_node_node_value_read, NULL);
 	dom_register_prop_handler(&dom_namespace_node_prop_handlers, "nodeType", sizeof("nodeType")-1, dom_node_node_type_read, NULL);

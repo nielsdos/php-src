@@ -57,7 +57,6 @@ static zend_class_entry *register_class_DoOperationNoCast(void)
 	ZVAL_UNDEF(&property_val_default_value);
 	zend_string *property_val_name = zend_string_init("val", sizeof("val") - 1, 1);
 	zend_declare_typed_property(class_entry, property_val_name, &property_val_default_value, ZEND_ACC_PRIVATE, NULL, (zend_type) ZEND_TYPE_INIT_MASK(MAY_BE_LONG));
-	zend_string_release(property_val_name);
 
 	return class_entry;
 }
@@ -74,7 +73,6 @@ static zend_class_entry *register_class_LongCastableNoOperations(void)
 	ZVAL_UNDEF(&property_val_default_value);
 	zend_string *property_val_name = zend_string_init("val", sizeof("val") - 1, 1);
 	zend_declare_typed_property(class_entry, property_val_name, &property_val_default_value, ZEND_ACC_PRIVATE, NULL, (zend_type) ZEND_TYPE_INIT_MASK(MAY_BE_LONG));
-	zend_string_release(property_val_name);
 
 	return class_entry;
 }
@@ -91,7 +89,6 @@ static zend_class_entry *register_class_FloatCastableNoOperations(void)
 	ZVAL_UNDEF(&property_val_default_value);
 	zend_string *property_val_name = zend_string_init("val", sizeof("val") - 1, 1);
 	zend_declare_typed_property(class_entry, property_val_name, &property_val_default_value, ZEND_ACC_PRIVATE, NULL, (zend_type) ZEND_TYPE_INIT_MASK(MAY_BE_DOUBLE));
-	zend_string_release(property_val_name);
 
 	return class_entry;
 }
@@ -108,7 +105,6 @@ static zend_class_entry *register_class_NumericCastableNoOperations(void)
 	ZVAL_UNDEF(&property_val_default_value);
 	zend_string *property_val_name = zend_string_init("val", sizeof("val") - 1, 1);
 	zend_declare_typed_property(class_entry, property_val_name, &property_val_default_value, ZEND_ACC_PRIVATE, NULL, (zend_type) ZEND_TYPE_INIT_MASK(MAY_BE_LONG|MAY_BE_DOUBLE));
-	zend_string_release(property_val_name);
 
 	return class_entry;
 }

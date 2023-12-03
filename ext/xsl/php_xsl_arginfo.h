@@ -117,13 +117,11 @@ static zend_class_entry *register_class_XSLTProcessor(void)
 	ZVAL_FALSE(&property_doXInclude_default_value);
 	zend_string *property_doXInclude_name = zend_string_init("doXInclude", sizeof("doXInclude") - 1, 1);
 	zend_declare_typed_property(class_entry, property_doXInclude_name, &property_doXInclude_default_value, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_MASK(MAY_BE_BOOL));
-	zend_string_release(property_doXInclude_name);
 
 	zval property_cloneDocument_default_value;
 	ZVAL_FALSE(&property_cloneDocument_default_value);
 	zend_string *property_cloneDocument_name = zend_string_init("cloneDocument", sizeof("cloneDocument") - 1, 1);
 	zend_declare_typed_property(class_entry, property_cloneDocument_name, &property_cloneDocument_default_value, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_MASK(MAY_BE_BOOL));
-	zend_string_release(property_cloneDocument_name);
 
 	return class_entry;
 }
