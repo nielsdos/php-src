@@ -736,10 +736,12 @@ static zend_always_inline Bucket *zend_hash_find_bucket(const HashTable *ht, con
 	uint32_t idx;
 	Bucket *p, *arData;
 
-	ZEND_ASSERT(ZSTR_H(key) != 0 && "Hash must be known");
+	zend_ulong h = ZSTR_H(key);
+
+	ZEND_ASSERT(h != 0 && "Hash must be known");
 
 	arData = ht->arData;
-	nIndex = ZSTR_H(key) | ht->nTableMask;
+	nIndex = h | ht->nTableMask;
 	idx = HT_HASH_EX(arData, nIndex);
 
 	if (UNEXPECTED(idx == HT_INVALID_IDX)) {
@@ -751,7 +753,7 @@ static zend_always_inline Bucket *zend_hash_find_bucket(const HashTable *ht, con
 	}
 
 	while (1) {
-		if (p->h == ZSTR_H(key) &&
+		if (p->h == h &&
 		    EXPECTED(p->key) &&
 		    zend_string_equal_content(p->key, key)) {
 			return p;
