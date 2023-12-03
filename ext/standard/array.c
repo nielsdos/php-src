@@ -6470,14 +6470,14 @@ PHP_FUNCTION(array_map)
 		array_init_size(return_value, maxlen);
 		zend_hash_real_init(Z_ARRVAL_P(return_value), HT_IS_PACKED(Z_ARRVAL(arrays[0])));
 
-		ZEND_HASH_FOREACH_KEY_VAL(Z_ARRVAL(arrays[0]), num_key, str_key, zv) {
-			fci.retval = &result;
-			fci.param_count = 1;
-			fci.params = &arg;
+		fci.retval = &result;
+		fci.param_count = 1;
+		fci.params = &arg;
 
+		ZEND_HASH_FOREACH_KEY_VAL(Z_ARRVAL(arrays[0]), num_key, str_key, zv) {
 			ZVAL_COPY(&arg, zv);
 			ret = zend_call_function(&fci, &fci_cache);
-			i_zval_ptr_dtor(&arg);
+			Z_TRY_DELREF_P(&arg);
 			if (ret != SUCCESS || Z_TYPE(result) == IS_UNDEF) {
 				zend_array_destroy(Z_ARR_P(return_value));
 				RETURN_NULL();
