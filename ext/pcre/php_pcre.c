@@ -527,7 +527,7 @@ static void free_subpats_table(zend_string **subpat_names, uint32_t num_subpats)
 	uint32_t i;
 	for (i = 0; i < num_subpats; i++) {
 		if (subpat_names[i]) {
-			zend_string_release(subpat_names[i]);
+			zend_string_release_ex(subpat_names[i], false);
 		}
 	}
 	efree(subpat_names);
@@ -1105,7 +1105,7 @@ static void php_do_pcre_match(INTERNAL_FUNCTION_PARAMETERS, bool global) /* {{{ 
 
 	pce->refcount++;
 	php_pcre_match_impl(pce, subject, return_value, subpats,
-		global, ZEND_NUM_ARGS() >= 4, flags, start_offset);
+		global, flags, start_offset);
 	pce->refcount--;
 }
 /* }}} */
@@ -1128,7 +1128,7 @@ static zend_always_inline bool is_known_valid_utf8(
 
 /* {{{ php_pcre_match_impl() */
 PHPAPI void php_pcre_match_impl(pcre_cache_entry *pce, zend_string *subject_str, zval *return_value,
-	zval *subpats, bool global, bool use_flags, zend_long flags, zend_off_t start_offset)
+	zval *subpats, bool global, zend_long flags, zend_off_t start_offset)
 {
 	zval			 result_set;		/* Holds a set of subpatterns after
 										   a global match */
@@ -1163,7 +1163,7 @@ PHPAPI void php_pcre_match_impl(pcre_cache_entry *pce, zend_string *subject_str,
 
 	subpats_order = global ? PREG_PATTERN_ORDER : 0;
 
-	if (use_flags) {
+	if (flags) {
 		offset_capture = flags & PREG_OFFSET_CAPTURE;
 		unmatched_as_null = flags & PREG_UNMATCHED_AS_NULL;
 
@@ -1173,11 +1173,11 @@ PHPAPI void php_pcre_match_impl(pcre_cache_entry *pce, zend_string *subject_str,
 		 */
 		if (flags & 0xff) {
 			subpats_order = flags & 0xff;
-		}
-		if ((global && (subpats_order < PREG_PATTERN_ORDER || subpats_order > PREG_SET_ORDER)) ||
-			(!global && subpats_order != 0)) {
-			zend_argument_value_error(4, "must be a PREG_* constant");
-			RETURN_THROWS();
+			if ((global && (subpats_order < PREG_PATTERN_ORDER || subpats_order > PREG_SET_ORDER)) ||
+				(!global && subpats_order != 0)) {
+				zend_argument_value_error(4, "must be a PREG_* constant");
+				RETURN_THROWS();
+			}
 		}
 	} else {
 		offset_capture = 0;
