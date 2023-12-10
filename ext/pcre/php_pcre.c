@@ -306,11 +306,12 @@ static PHP_GINIT_FUNCTION(pcre) /* {{{ */
 	pcre_globals->backtrack_limit = 0;
 	pcre_globals->recursion_limit = 0;
 	pcre_globals->error_code      = PHP_PCRE_NO_ERROR;
-	ZVAL_UNDEF(&pcre_globals->unmatched_null_pair);
-	ZVAL_UNDEF(&pcre_globals->unmatched_empty_pair);
+	pcre_globals->unmatched_null_pair = NULL;
+	pcre_globals->unmatched_empty_pair = NULL;
 #ifdef HAVE_PCRE_JIT_SUPPORT
 	pcre_globals->jit = 1;
 #endif
+	//pcre_globals->last_regex = NULL;
 
 	php_pcre_init_pcre2(1);
 	zend_hash_init(&char_tables, 1, NULL, php_pcre_free_char_table, 1);
@@ -501,10 +502,21 @@ static PHP_RSHUTDOWN_FUNCTION(pcre)
 		zend_hash_destroy(&PCRE_G(pcre_cache));
 	}
 
-	zval_ptr_dtor(&PCRE_G(unmatched_null_pair));
-	zval_ptr_dtor(&PCRE_G(unmatched_empty_pair));
-	ZVAL_UNDEF(&PCRE_G(unmatched_null_pair));
-	ZVAL_UNDEF(&PCRE_G(unmatched_empty_pair));
+	if (PCRE_G(unmatched_null_pair)) {
+		zval tmp;
+		ZVAL_ARR(&tmp, PCRE_G(unmatched_null_pair));
+		zval_ptr_dtor(&tmp);
+		PCRE_G(unmatched_null_pair) = NULL;
+	}
+	if (PCRE_G(unmatched_empty_pair)) {
+		zval tmp;
+		ZVAL_ARR(&tmp, PCRE_G(unmatched_empty_pair));
+		zval_ptr_dtor(&tmp);
+		PCRE_G(unmatched_empty_pair) = NULL;
+	}
+	// if (PCRE_G(last_regex)) {
+		// zend_string_release(PCRE_G(last_regex));
+	// }
 	return SUCCESS;
 }
 
@@ -615,6 +627,9 @@ PHPAPI pcre_cache_entry* pcre_get_compiled_regex_cache_ex(zend_string *regex, in
 			ZSTR_VAL(regex), ZSTR_LEN(regex));
 	} else {
 		key = regex;
+		// if (PCRE_G(last_regex) == regex) {
+			// return PCRE_G(last_pce);
+		// }
 	}
 
 	/* Try to lookup the cached regex entry, and if successful, just pass
@@ -623,6 +638,12 @@ PHPAPI pcre_cache_entry* pcre_get_compiled_regex_cache_ex(zend_string *regex, in
 	if (zv) {
 		if (key != regex) {
 			zend_string_release_ex(key, 0);
+		} else {
+			//if (PCRE_G(last_regex)) {
+			//	zend_string_release(PCRE_G(last_regex));
+			//}
+			//PCRE_G(last_regex) = zend_string_copy(key);
+			//PCRE_G(last_pce) = (pcre_cache_entry*)Z_PTR_P(zv);
 		}
 		return (pcre_cache_entry*)Z_PTR_P(zv);
 	}
@@ -822,6 +843,7 @@ PHPAPI pcre_cache_entry* pcre_get_compiled_regex_cache_ex(zend_string *regex, in
 	if (zend_hash_num_elements(&PCRE_G(pcre_cache)) == PCRE_CACHE_SIZE) {
 		int num_clean = PCRE_CACHE_SIZE / 8;
 		zend_hash_apply_with_argument(&PCRE_G(pcre_cache), pcre_clean_cache, &num_clean);
+		//PCRE_G(last_regex) = NULL;
 	}
 
 	/* Store the compiled pattern and extra info in the cache. */
@@ -933,14 +955,14 @@ static void init_unmatched_null_pair(void) {
 	zval val1, val2;
 	ZVAL_NULL(&val1);
 	ZVAL_LONG(&val2, -1);
-	ZVAL_ARR(&PCRE_G(unmatched_null_pair), zend_new_pair(&val1, &val2));
+	PCRE_G(unmatched_null_pair) = zend_new_pair(&val1, &val2);
 }
 
 static void init_unmatched_empty_pair(void) {
 	zval val1, val2;
 	ZVAL_EMPTY_STRING(&val1);
 	ZVAL_LONG(&val2, -1);
-	ZVAL_ARR(&PCRE_G(unmatched_empty_pair), zend_new_pair(&val1, &val2));
+	PCRE_G(unmatched_empty_pair) = zend_new_pair(&val1, &val2);
 }
 
 static zend_always_inline void populate_match_value_str(
@@ -986,15 +1008,17 @@ static inline void add_offset_pair(
 	/* Add (match, offset) to the return value */
 	if (PCRE2_UNSET == start_offset) {
 		if (unmatched_as_null) {
-			if (Z_ISUNDEF(PCRE_G(unmatched_null_pair))) {
+			if (!PCRE_G(unmatched_null_pair)) {
 				init_unmatched_null_pair();
 			}
-			ZVAL_COPY(&match_pair, &PCRE_G(unmatched_null_pair));
+			GC_ADDREF(PCRE_G(unmatched_null_pair));
+			ZVAL_ARR(&match_pair, PCRE_G(unmatched_null_pair));
 		} else {
-			if (Z_ISUNDEF(PCRE_G(unmatched_empty_pair))) {
+			if (!PCRE_G(unmatched_empty_pair)) {
 				init_unmatched_empty_pair();
 			}
-			ZVAL_COPY(&match_pair, &PCRE_G(unmatched_empty_pair));
+			GC_ADDREF(PCRE_G(unmatched_empty_pair));
+			ZVAL_ARR(&match_pair, PCRE_G(unmatched_empty_pair));
 		}
 	} else {
 		zval val1, val2;

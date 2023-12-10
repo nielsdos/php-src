@@ -81,8 +81,11 @@ ZEND_BEGIN_MODULE_GLOBALS(pcre)
 	bool per_request_cache;
 	php_pcre_error_code error_code;
 	/* Used for unmatched subpatterns in OFFSET_CAPTURE mode */
-	zval unmatched_null_pair;
-	zval unmatched_empty_pair;
+	HashTable *unmatched_null_pair;
+	HashTable *unmatched_empty_pair;
+	/* Fast lookup cache */
+	// zend_string *last_regex;
+	// pcre_cache_entry *last_pce;
 	/* General context using per-request allocator (ZMM). */
 	pcre2_general_context *gctx_zmm;
 ZEND_END_MODULE_GLOBALS(pcre)
