@@ -306,8 +306,8 @@ static PHP_GINIT_FUNCTION(pcre) /* {{{ */
 	pcre_globals->backtrack_limit = 0;
 	pcre_globals->recursion_limit = 0;
 	pcre_globals->error_code      = PHP_PCRE_NO_ERROR;
-	pcre_globals->unmatched_null_pair = NULL;
-	pcre_globals->unmatched_empty_pair = NULL;
+	ZVAL_UNDEF(&pcre_globals->unmatched_null_pair);
+	ZVAL_UNDEF(&pcre_globals->unmatched_empty_pair);
 #ifdef HAVE_PCRE_JIT_SUPPORT
 	pcre_globals->jit = 1;
 #endif
@@ -501,22 +501,10 @@ static PHP_RSHUTDOWN_FUNCTION(pcre)
 		zend_hash_destroy(&PCRE_G(pcre_cache));
 	}
 
-	if (PCRE_G(unmatched_null_pair)) {
-		if (!GC_DELREF(PCRE_G(unmatched_null_pair))) {
-			zend_array_destroy(PCRE_G(unmatched_null_pair));
-		} else {
-			gc_check_possible_root((zend_refcounted*)PCRE_G(unmatched_null_pair));
-		}
-		PCRE_G(unmatched_null_pair) = NULL;
-	}
-	if (PCRE_G(unmatched_empty_pair)) {
-		if (!GC_DELREF(PCRE_G(unmatched_empty_pair))) {
-			zend_array_destroy(PCRE_G(unmatched_empty_pair));
-		} else {
-			gc_check_possible_root((zend_refcounted*)PCRE_G(unmatched_empty_pair));
-		}
-		PCRE_G(unmatched_empty_pair) = NULL;
-	}
+	zval_ptr_dtor(&PCRE_G(unmatched_null_pair));
+	zval_ptr_dtor(&PCRE_G(unmatched_empty_pair));
+	ZVAL_UNDEF(&PCRE_G(unmatched_null_pair));
+	ZVAL_UNDEF(&PCRE_G(unmatched_empty_pair));
 	return SUCCESS;
 }
 
@@ -945,14 +933,14 @@ static void init_unmatched_null_pair(void) {
 	zval val1, val2;
 	ZVAL_NULL(&val1);
 	ZVAL_LONG(&val2, -1);
-	PCRE_G(unmatched_null_pair) = zend_new_pair(&val1, &val2);
+	ZVAL_ARR(&PCRE_G(unmatched_null_pair), zend_new_pair(&val1, &val2));
 }
 
 static void init_unmatched_empty_pair(void) {
 	zval val1, val2;
 	ZVAL_EMPTY_STRING(&val1);
 	ZVAL_LONG(&val2, -1);
-	PCRE_G(unmatched_empty_pair) = zend_new_pair(&val1, &val2);
+	ZVAL_ARR(&PCRE_G(unmatched_empty_pair), zend_new_pair(&val1, &val2));
 }
 
 static zend_always_inline void populate_match_value_str(
@@ -998,17 +986,15 @@ static inline void add_offset_pair(
 	/* Add (match, offset) to the return value */
 	if (PCRE2_UNSET == start_offset) {
 		if (unmatched_as_null) {
-			if (!PCRE_G(unmatched_null_pair)) {
+			if (Z_ISUNDEF(PCRE_G(unmatched_null_pair))) {
 				init_unmatched_null_pair();
 			}
-			GC_ADDREF(PCRE_G(unmatched_null_pair));
-			ZVAL_ARR(&match_pair, PCRE_G(unmatched_null_pair));
+			ZVAL_COPY(&match_pair, &PCRE_G(unmatched_null_pair));
 		} else {
-			if (!PCRE_G(unmatched_empty_pair)) {
+			if (Z_ISUNDEF(PCRE_G(unmatched_empty_pair))) {
 				init_unmatched_empty_pair();
 			}
-			GC_ADDREF(PCRE_G(unmatched_empty_pair));
-			ZVAL_ARR(&match_pair, PCRE_G(unmatched_empty_pair));
+			ZVAL_COPY(&match_pair, &PCRE_G(unmatched_empty_pair));
 		}
 	} else {
 		zval val1, val2;
