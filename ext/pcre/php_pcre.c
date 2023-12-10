@@ -1016,7 +1016,7 @@ static void populate_subpat_array(
 	bool offset_capture = (flags & PREG_OFFSET_CAPTURE) != 0;
 	bool unmatched_as_null = (flags & PREG_UNMATCHED_AS_NULL) != 0;
 	zval val;
-	int i;
+	int i; 
 	HashTable *subpats_ht = Z_ARRVAL_P(subpats);
 	if (subpat_names) {
 		if (offset_capture) {
