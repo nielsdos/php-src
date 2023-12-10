@@ -655,7 +655,7 @@ PHPAPI pcre_cache_entry* pcre_get_compiled_regex_cache_ex(zend_string *regex, bo
 	}
 
 	start_delimiter = delimiter;
-	if ((pp = strchr("([{< )]}> )]}>", delimiter)))
+	if ((pp = strchr("([{< )]}>", delimiter)))
 		delimiter = pp[5];
 	end_delimiter = delimiter;
 
@@ -1013,8 +1013,8 @@ static inline void add_offset_pair(
 static void populate_subpat_array(
 		zval *subpats, const char *subject, PCRE2_SIZE *offsets, zend_string **subpat_names,
 		uint32_t num_subpats, int count, const PCRE2_SPTR mark, zend_long flags) {
-	bool offset_capture = (flags & PREG_OFFSET_CAPTURE) != 0;
-	bool unmatched_as_null = (flags & PREG_UNMATCHED_AS_NULL) != 0;
+	zend_long offset_capture = flags & PREG_OFFSET_CAPTURE;
+	zend_long unmatched_as_null = flags & PREG_UNMATCHED_AS_NULL;
 	zval val;
 	int i; 
 	HashTable *subpats_ht = Z_ARRVAL_P(subpats);
