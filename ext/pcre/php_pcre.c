@@ -596,7 +596,7 @@ static zend_always_inline size_t calculate_unit_length(pcre_cache_entry *pce, co
 /* }}} */
 
 /* {{{ pcre_get_compiled_regex_cache */
-PHPAPI pcre_cache_entry* pcre_get_compiled_regex_cache_ex(zend_string *regex, int locale_aware)
+PHPAPI pcre_cache_entry* pcre_get_compiled_regex_cache_ex(zend_string *regex, bool locale_aware)
 {
 	pcre2_code			*re = NULL;
 #if 10 == PCRE2_MAJOR && 37 == PCRE2_MINOR && !HAVE_BUNDLED_PCRE
@@ -891,7 +891,7 @@ PHPAPI pcre_cache_entry* pcre_get_compiled_regex_cache_ex(zend_string *regex, in
 /* {{{ pcre_get_compiled_regex_cache */
 PHPAPI pcre_cache_entry* pcre_get_compiled_regex_cache(zend_string *regex)
 {
-	return pcre_get_compiled_regex_cache_ex(regex, 1);
+	return pcre_get_compiled_regex_cache_ex(regex, true);
 }
 /* }}} */
 
@@ -1093,7 +1093,7 @@ static void populate_subpat_array(
 	}
 }
 
-static void php_do_pcre_match(INTERNAL_FUNCTION_PARAMETERS, int global) /* {{{ */
+static void php_do_pcre_match(INTERNAL_FUNCTION_PARAMETERS, bool global) /* {{{ */
 {
 	/* parameters */
 	zend_string		 *regex;			/* Regular expression */
@@ -1142,7 +1142,7 @@ static zend_always_inline bool is_known_valid_utf8(
 
 /* {{{ php_pcre_match_impl() */
 PHPAPI void php_pcre_match_impl(pcre_cache_entry *pce, zend_string *subject_str, zval *return_value,
-	zval *subpats, int global, int use_flags, zend_long flags, zend_off_t start_offset)
+	zval *subpats, bool global, bool use_flags, zend_long flags, zend_off_t start_offset)
 {
 	zval			 result_set;		/* Holds a set of subpatterns after
 										   a global match */
@@ -1326,7 +1326,7 @@ matched:
 						 * arrays with NULLs or empty strings.
 						 */
 						if (count < num_subpats) {
-							for (; i < num_subpats; i++) {
+							for (int i = count; i < num_subpats; i++) {
 								if (offset_capture) {
 									add_offset_pair(
 										match_sets[i], NULL, PCRE2_UNSET, PCRE2_UNSET,
@@ -1470,14 +1470,14 @@ error:
 /* {{{ Perform a Perl-style regular expression match */
 PHP_FUNCTION(preg_match)
 {
-	php_do_pcre_match(INTERNAL_FUNCTION_PARAM_PASSTHRU, 0);
+	php_do_pcre_match(INTERNAL_FUNCTION_PARAM_PASSTHRU, false);
 }
 /* }}} */
 
 /* {{{ Perform a Perl-style global regular expression match */
 PHP_FUNCTION(preg_match_all)
 {
-	php_do_pcre_match(INTERNAL_FUNCTION_PARAM_PASSTHRU, 1);
+	php_do_pcre_match(INTERNAL_FUNCTION_PARAM_PASSTHRU, true);
 }
 /* }}} */
 
