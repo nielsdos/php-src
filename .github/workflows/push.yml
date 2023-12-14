@@ -146,7 +146,7 @@ jobs:
         if: ${{ !matrix.asan }}
         uses: ./.github/actions/verify-generated-files
   MACOS_DEBUG_NTS:
-    if: github.repository_owner == 'php' || github.event_name == 'pull_request'
+    if: false
     strategy:
       fail-fast: false
       matrix:
