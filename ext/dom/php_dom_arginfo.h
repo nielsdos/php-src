@@ -1,5 +1,5 @@
 /* This is a generated file, edit the .stub.php file instead.
- * Stub hash: 5512165ddaad08287561abac2a325e2aab3c6188 */
+ * Stub hash: d3f1ab5bd5b883300555b157bb0f4309a8c6d9ab */
 
 ZEND_BEGIN_ARG_WITH_RETURN_OBJ_INFO_EX(arginfo_dom_import_simplexml, 0, 1, DOMElement, 0)
 	ZEND_ARG_TYPE_INFO(0, node, IS_OBJECT, 0)
@@ -1784,6 +1784,12 @@ static zend_class_entry *register_class_DOMDocument(zend_class_entry *class_entr
 	zend_declare_typed_property(class_entry, property_substituteEntities_name, &property_substituteEntities_default_value, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_MASK(MAY_BE_BOOL));
 	zend_string_release(property_substituteEntities_name);
 
+	zval property_strictErrorChecking_default_value;
+	ZVAL_UNDEF(&property_strictErrorChecking_default_value);
+	zend_string *property_strictErrorChecking_name = zend_string_init("strictErrorChecking", sizeof("strictErrorChecking") - 1, 1);
+	zend_declare_typed_property(class_entry, property_strictErrorChecking_name, &property_strictErrorChecking_default_value, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_MASK(MAY_BE_BOOL));
+	zend_string_release(property_strictErrorChecking_name);
+
 	return class_entry;
 }
 
@@ -1999,12 +2005,6 @@ static zend_class_entry *register_class_DOM_Document(zend_class_entry *class_ent
 	zend_string *property_encoding_name = zend_string_init("encoding", sizeof("encoding") - 1, 1);
 	zend_declare_typed_property(class_entry, property_encoding_name, &property_encoding_default_value, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_MASK(MAY_BE_STRING|MAY_BE_NULL));
 	zend_string_release(property_encoding_name);
-
-	zval property_strictErrorChecking_default_value;
-	ZVAL_UNDEF(&property_strictErrorChecking_default_value);
-	zend_string *property_strictErrorChecking_name = zend_string_init("strictErrorChecking", sizeof("strictErrorChecking") - 1, 1);
-	zend_declare_typed_property(class_entry, property_strictErrorChecking_name, &property_strictErrorChecking_default_value, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_MASK(MAY_BE_BOOL));
-	zend_string_release(property_strictErrorChecking_name);
 
 	zval property_documentURI_default_value;
 	ZVAL_UNDEF(&property_documentURI_default_value);
