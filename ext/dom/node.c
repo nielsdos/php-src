@@ -1487,34 +1487,34 @@ static bool php_dom_node_is_ns_prefix_equal(const xmlNode *this, const xmlNode *
 	return xmlStrEqual(this_ns, other_ns);
 }
 
-static bool php_dom_node_is_equal_node(const xmlNode *this, const xmlNode *other);
+static bool php_dom_node_is_equal_node(const xmlNode *this, const xmlNode *other, bool spec_compliant);
 
 #define PHP_DOM_FUNC_CAT(prefix, suffix) prefix##_##suffix
 /* xmlNode and xmlNs have incompatible struct layouts, i.e. the next field is in a different offset */
-#define PHP_DOM_DEFINE_LIST_EQUALITY_HELPER(type)																\
-	static size_t PHP_DOM_FUNC_CAT(php_dom_node_count_list_size, type)(const type *node)						\
-	{																											\
-		size_t counter = 0;																						\
-		while (node) {																							\
-			counter++;																							\
-			node = node->next;																					\
-		}																										\
-		return counter;																							\
-	}																											\
-	static bool PHP_DOM_FUNC_CAT(php_dom_node_list_equality_check, type)(const type *list1, const type *list2)	\
-	{																											\
-		size_t count = PHP_DOM_FUNC_CAT(php_dom_node_count_list_size, type)(list1);								\
-		if (count != PHP_DOM_FUNC_CAT(php_dom_node_count_list_size, type)(list2)) {								\
-			return false;																						\
-		}																										\
-		for (size_t i = 0; i < count; i++) {																	\
-			if (!php_dom_node_is_equal_node((const xmlNode *) list1, (const xmlNode *) list2)) {				\
-				return false;																					\
-			}																									\
-			list1 = list1->next;																				\
-			list2 = list2->next;																				\
-		}																										\
-		return true;																							\
+#define PHP_DOM_DEFINE_LIST_EQUALITY_HELPER(type)																					\
+	static size_t PHP_DOM_FUNC_CAT(php_dom_node_count_list_size, type)(const type *node)											\
+	{																																\
+		size_t counter = 0;																											\
+		while (node) {																												\
+			counter++;																												\
+			node = node->next;																										\
+		}																															\
+		return counter;																												\
+	}																																\
+	static bool PHP_DOM_FUNC_CAT(php_dom_node_list_equality_check, type)(const type *list1, const type *list2, bool spec_compliant)	\
+	{																																\
+		size_t count = PHP_DOM_FUNC_CAT(php_dom_node_count_list_size, type)(list1);													\
+		if (count != PHP_DOM_FUNC_CAT(php_dom_node_count_list_size, type)(list2)) {													\
+			return false;																											\
+		}																															\
+		for (size_t i = 0; i < count; i++) {																						\
+			if (!php_dom_node_is_equal_node((const xmlNode *) list1, (const xmlNode *) list2, spec_compliant)) {					\
+				return false;																										\
+			}																														\
+			list1 = list1->next;																									\
+			list2 = list2->next;																									\
+		}																															\
+		return true;																												\
 	}
 PHP_DOM_DEFINE_LIST_EQUALITY_HELPER(xmlNode)
 PHP_DOM_DEFINE_LIST_EQUALITY_HELPER(xmlNs)
@@ -1528,7 +1528,7 @@ static bool php_dom_is_equal_attr(const xmlAttr *this_attr, const xmlAttr *other
 		&& php_dom_node_is_content_equal((const xmlNode *) this_attr, (const xmlNode *) other_attr);
 }
 
-static bool php_dom_node_is_equal_node(const xmlNode *this, const xmlNode *other)
+static bool php_dom_node_is_equal_node(const xmlNode *this, const xmlNode *other, bool spec_compliant)
 {
 	ZEND_ASSERT(this != NULL);
 	ZEND_ASSERT(other != NULL);
@@ -1545,9 +1545,9 @@ static bool php_dom_node_is_equal_node(const xmlNode *this, const xmlNode *other
 			&& php_dom_node_is_ns_prefix_equal(this, other)
 			&& php_dom_node_is_ns_uri_equal(this, other)
 			/* Check attributes first, then namespace declarations, then children */
-			&& php_dom_node_list_equality_check_xmlNode((const xmlNode *) this->properties, (const xmlNode *) other->properties)
-			&& php_dom_node_list_equality_check_xmlNs(this->nsDef, other->nsDef)
-			&& php_dom_node_list_equality_check_xmlNode(this->children, other->children);
+			&& php_dom_node_list_equality_check_xmlNode((const xmlNode *) this->properties, (const xmlNode *) other->properties, spec_compliant)
+			&& (!spec_compliant && php_dom_node_list_equality_check_xmlNs(this->nsDef, other->nsDef, spec_compliant))
+			&& php_dom_node_list_equality_check_xmlNode(this->children, other->children, spec_compliant);
 	} else if (this->type == XML_DTD_NODE) {
 		/* Note: in the living spec entity declarations and notations are no longer compared because they're considered obsolete. */
 		const xmlDtd *this_dtd = (const xmlDtd *) this;
@@ -1578,7 +1578,7 @@ static bool php_dom_node_is_equal_node(const xmlNode *this, const xmlNode *other
 		const xmlNs *other_ns = (const xmlNs *) other;
 		return xmlStrEqual(this_ns->prefix, other_ns->prefix) && xmlStrEqual(this_ns->href, other_ns->href);
 	} else if (this->type == XML_DOCUMENT_FRAG_NODE || this->type == XML_HTML_DOCUMENT_NODE || this->type == XML_DOCUMENT_NODE) {
-		return php_dom_node_list_equality_check_xmlNode(this->children, other->children);
+		return php_dom_node_list_equality_check_xmlNode(this->children, other->children, spec_compliant);
 	}
 
 	return false;
@@ -1592,7 +1592,7 @@ PHP_METHOD(DOMNode, isEqualNode)
 {
 	zval *id, *node;
 	xmlNodePtr otherp, nodep;
-	dom_object *unused_intern;
+	dom_object *intern;
 
 	id = ZEND_THIS;
 	if (zend_parse_parameters(ZEND_NUM_ARGS(), "O!", &node, dom_node_class_entry) == FAILURE) {
@@ -1603,8 +1603,8 @@ PHP_METHOD(DOMNode, isEqualNode)
 		RETURN_FALSE;
 	}
 
-	DOM_GET_THIS_OBJ(nodep, id, xmlNodePtr, unused_intern);
-	DOM_GET_OBJ(otherp, node, xmlNodePtr, unused_intern);
+	DOM_GET_OBJ(otherp, node, xmlNodePtr, intern);
+	DOM_GET_THIS_OBJ(nodep, id, xmlNodePtr, intern);
 
 	if (nodep == otherp) {
 		RETURN_TRUE;
@@ -1615,7 +1615,7 @@ PHP_METHOD(DOMNode, isEqualNode)
 		RETURN_BOOL(nodep == NULL && otherp == NULL);
 	}
 
-	RETURN_BOOL(php_dom_node_is_equal_node(nodep, otherp));
+	RETURN_BOOL(php_dom_node_is_equal_node(nodep, otherp, php_dom_follow_spec_intern(intern)));
 }
 /* }}} end DOMNode::isEqualNode */
 
