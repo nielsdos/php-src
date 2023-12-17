@@ -573,7 +573,7 @@ function main(): void
                     $lsanSuppressions = __DIR__ . '/.github/lsan-suppressions.txt';
                     if (file_exists($lsanSuppressions)) {
                         $environment['LSAN_OPTIONS'] = 'suppressions=' . $lsanSuppressions
-                            . ':print_suppressions=0';
+                            . ':print_suppressions=0:fast_unwind_on_malloc=0';
                     }
                     break;
                 case '--repeat':
