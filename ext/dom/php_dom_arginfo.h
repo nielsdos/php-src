@@ -1,5 +1,5 @@
 /* This is a generated file, edit the .stub.php file instead.
- * Stub hash: d3f1ab5bd5b883300555b157bb0f4309a8c6d9ab */
+ * Stub hash: 47ee954f177b6e2ed523376533de87e7f837f3cc */
 
 ZEND_BEGIN_ARG_WITH_RETURN_OBJ_INFO_EX(arginfo_dom_import_simplexml, 0, 1, DOMElement, 0)
 	ZEND_ARG_TYPE_INFO(0, node, IS_OBJECT, 0)
@@ -1414,7 +1414,6 @@ static zend_class_entry *register_class_DOMNameSpaceNode(void)
 
 	INIT_CLASS_ENTRY(ce, "DOMNameSpaceNode", class_DOMNameSpaceNode_methods);
 	class_entry = zend_register_internal_class_ex(&ce, NULL);
-	zend_register_class_alias("DOM\\NameSpaceNode", class_entry);
 
 	zval property_nodeName_default_value;
 	ZVAL_UNDEF(&property_nodeName_default_value);
