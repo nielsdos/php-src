@@ -1520,7 +1520,6 @@ void dom_normalize (xmlNodePtr nodep)
 {
 	xmlNodePtr child, nextp, newnextp;
 	xmlAttrPtr attr;
-	xmlChar	*strContent;
 
 	child = nodep->children;
 	while(child != NULL) {
@@ -1530,9 +1529,10 @@ void dom_normalize (xmlNodePtr nodep)
 				while (nextp != NULL) {
 					if (nextp->type == XML_TEXT_NODE) {
 						newnextp = nextp->next;
-						strContent = xmlNodeGetContent(nextp);
-						xmlNodeAddContent(child, strContent);
-						xmlFree(strContent);
+						xmlChar *strContent = nextp->content;
+						if (strContent != NULL) {
+							xmlNodeAddContent(child, strContent);
+						}
 						xmlUnlinkNode(nextp);
 						free_node(nextp);
 						nextp = newnextp;
