@@ -1508,6 +1508,13 @@ static inline bool is_empty_node(xmlNodePtr nodep)
 	return nodep->content == NULL || *nodep->content == '\0';
 }
 
+static inline void free_node(xmlNodePtr node)
+{
+	if (node->_private == NULL) {
+		xmlFreeNode(node);
+	}
+}
+
 /* {{{ void dom_normalize (xmlNodePtr nodep) */
 void dom_normalize (xmlNodePtr nodep)
 {
@@ -1527,7 +1534,7 @@ void dom_normalize (xmlNodePtr nodep)
 						xmlNodeAddContent(child, strContent);
 						xmlFree(strContent);
 						xmlUnlinkNode(nextp);
-						php_libxml_node_free_resource(nextp);
+						free_node(nextp);
 						nextp = newnextp;
 					} else {
 						break;
@@ -1536,7 +1543,7 @@ void dom_normalize (xmlNodePtr nodep)
 				if (is_empty_node(child)) {
 					nextp = child->next;
 					xmlUnlinkNode(child);
-					php_libxml_node_free_resource(child);
+					free_node(child);
 					child = nextp;
 					continue;
 				}
