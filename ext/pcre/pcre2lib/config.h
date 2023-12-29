@@ -103,3 +103,8 @@
 #ifndef MAX_VARLOOKBEHIND
 #define MAX_VARLOOKBEHIND 255
 #endif
+
+/* to make a symbol visible */
+#ifndef PCRE2_EXPORT
+#define PCRE2_EXPORT
+#endif
