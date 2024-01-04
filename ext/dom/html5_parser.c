@@ -24,6 +24,7 @@
 #include "html5_parser.h"
 #include <lexbor/html/parser.h>
 #include <lexbor/html/interfaces/element.h>
+#include <lexbor/dom/dom.h>
 #include <libxml/parserInternals.h>
 #include <libxml/HTMLtree.h>
 #include <Zend/zend.h>
