@@ -1614,23 +1614,26 @@ static size_t php_strspn_strcspn_common(const char *haystack, const char *charac
 		return ptr - haystack;
 	}
 
-	/* Every character in characters will set a boolean in this lookup table.
+	/* Every character in characters will set a bit in this lookup table.
 	 * We'll use the lookup table as a fast lookup for the characters in characters while looping over haystack. */
-	bool table[256];
-	/* Use multiple small memsets to inline the memset with intrinsics, trick learned from glibc. */
-	memset(table, 0, 64);
-	memset(table + 64, 0, 64);
-	memset(table + 128, 0, 64);
-	memset(table + 192, 0, 64);
+	uint32_t table[256 / 32];
+	memset(table, 0, sizeof(table));
 
 	while (characters < characters_end) {
-		table[(unsigned char) *characters] = true;
+		unsigned char idx = (unsigned char) *characters;
+		table[idx >> 5] |= 1U << (idx & 31);
 		characters++;
 	}
 
 	const char *ptr = haystack;
-	while (ptr < haystack_end && table[(unsigned char) *ptr] == must_match) {
-		ptr++;
+	if (must_match) {
+		while (ptr < haystack_end && (table[(unsigned char) *ptr >> 5] & (1U << ((unsigned char) *ptr & 31)))) {
+			ptr++;
+		}
+	} else {
+		while (ptr < haystack_end && !(table[(unsigned char) *ptr >> 5] & (1U << ((unsigned char) *ptr & 31)))) {
+			ptr++;
+		}
 	}
 
 	return ptr - haystack;
