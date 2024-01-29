@@ -633,6 +633,11 @@ PHPAPI zend_result _php_stream_fill_read_buffer(php_stream *stream, size_t size)
 					 * further reads should fail. */
 					stream->eof = 1;
 					efree(chunk_buf);
+					while (brig_outp->head) {
+						bucket = brig_outp->head;
+						php_stream_bucket_unlink(bucket);
+						php_stream_bucket_delref(bucket);
+					}
 					return FAILURE;
 			}
 
@@ -981,7 +986,12 @@ PHPAPI char *_php_stream_get_line(php_stream *stream, char *buf, size_t maxlen,
 				}
 			}
 
-			php_stream_fill_read_buffer(stream, toread);
+			if (UNEXPECTED(php_stream_fill_read_buffer(stream, toread) != SUCCESS)) {
+				if (grow_mode) {
+					efree(bufstart);
+				}
+				return NULL;
+			}
 
 			if (stream->writepos - stream->readpos == 0) {
 				break;
