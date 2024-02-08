@@ -1,5 +1,5 @@
 /* This is a generated file, edit the .stub.php file instead.
- * Stub hash: 68ac4d2598b9f0c1ed220d68aa223ef1f66df9a2 */
+ * Stub hash: 6227a38d73a3d3049ce9b3027a34671b9be93231 */
 
 ZEND_BEGIN_ARG_WITH_RETURN_OBJ_INFO_EX(arginfo_dom_import_simplexml, 0, 1, DOMElement, 0)
 	ZEND_ARG_TYPE_INFO(0, node, IS_OBJECT, 0)
@@ -1010,7 +1010,7 @@ ZEND_END_ARG_INFO()
 #endif
 
 #if defined(LIBXML_XPATH_ENABLED)
-ZEND_BEGIN_ARG_WITH_TENTATIVE_RETURN_TYPE_INFO_EX(arginfo_class_DOM_XPath_evaluate, 0, 1, IS_MIXED, 0)
+ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_class_DOM_XPath_evaluate, 0, 1, IS_MIXED, 0)
 	ZEND_ARG_TYPE_INFO(0, expression, IS_STRING, 0)
 	ZEND_ARG_OBJ_INFO_WITH_DEFAULT_VALUE(0, contextNode, DOM\\DOM\\\116ode, 1, "null")
 	ZEND_ARG_TYPE_INFO_WITH_DEFAULT_VALUE(0, registerNodeNS, _IS_BOOL, 0, "true")
