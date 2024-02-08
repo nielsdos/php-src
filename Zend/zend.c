@@ -1095,9 +1095,11 @@ void zend_shutdown(void) /* {{{ */
 {
 	zend_vm_dtor();
 	zend_destroy_rsrc_list(&EG(persistent_list));
+#ifdef ZTS
 	if (global_persistent_list != &EG(persistent_list)) {
 		zend_destroy_rsrc_list(global_persistent_list);
 	}
+#endif
 	zend_destroy_modules();
 
 	virtual_cwd_deactivate();
