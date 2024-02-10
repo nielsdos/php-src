@@ -271,8 +271,13 @@ static void php_xpath_eval(INTERNAL_FUNCTION_PARAMETERS, int type, bool modern) 
 
 	docp = (xmlDocPtr) ctxp->doc;
 	if (docp == NULL) {
-		php_error_docref(NULL, E_WARNING, "Invalid XPath Document Pointer");
-		RETURN_FALSE;
+		if (modern) {
+			zend_throw_error(NULL, "Invalid XPath Document Pointer");
+			RETURN_THROWS();
+		} else {
+			php_error_docref(NULL, E_WARNING, "Invalid XPath Document Pointer");
+			RETURN_FALSE;
+		}
 	}
 
 	if (context != NULL) {
@@ -313,8 +318,15 @@ static void php_xpath_eval(INTERNAL_FUNCTION_PARAMETERS, int type, bool modern) 
 	}
 
 	if (! xpathobjp) {
-		/* TODO Add Warning? */
-		RETURN_FALSE;
+		if (modern) {
+			if (!EG(exception)) {
+				zend_throw_error(NULL, "Invalid XPath Expression");
+			}
+			RETURN_THROWS();
+		} else {
+			/* TODO Add Warning? */
+			RETURN_FALSE;
+		}
 	}
 
 	if (type == PHP_DOM_XPATH_QUERY) {
