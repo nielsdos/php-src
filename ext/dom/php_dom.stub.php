@@ -1561,6 +1561,8 @@ namespace DOM
         public function prepend(Node|string ...$nodes): void {}
         /** @implementation-alias DOMDocument::replaceChildren */
         public function replaceChildren(Node|string ...$nodes): void {}
+
+        public function importLegacyNode(\DOMNode $node, bool $deep = false): Node {}
     }
 
     final class HTMLDocument extends Document
