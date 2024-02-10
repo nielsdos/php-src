@@ -1596,8 +1596,7 @@ namespace DOM
 
         public bool $xmlStandalone;
 
-        /* TODO: must maybe not nullable? */
-        public ?string $xmlVersion;
+        public string $xmlVersion;
 
         public bool $formatOutput;
 
