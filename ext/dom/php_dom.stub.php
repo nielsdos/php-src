@@ -1222,7 +1222,6 @@ namespace DOM
         /** @implementation-alias DOMNodeList::getIterator */
         public function getIterator(): \Iterator {}
 
-        /* TODO: this probably needs fixes??? also via XPath can namespace nodes be returned? */
         /** @implementation-alias DOMNodeList::item */
         public function item(int $index): ?Node {}
     }
