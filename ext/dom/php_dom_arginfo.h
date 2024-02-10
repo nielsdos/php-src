@@ -1,5 +1,5 @@
 /* This is a generated file, edit the .stub.php file instead.
- * Stub hash: 2b1c85274e71011865ccffc390fcb2370c7c005c */
+ * Stub hash: 7ce8e1c3e27fd0c2c94f47a1467deb42b053acc9 */
 
 ZEND_BEGIN_ARG_WITH_RETURN_OBJ_INFO_EX(arginfo_dom_import_simplexml, 0, 1, DOMElement, 0)
 	ZEND_ARG_TYPE_INFO(0, node, IS_OBJECT, 0)
@@ -3369,7 +3369,7 @@ static zend_class_entry *register_class_DOM_XMLDocument(zend_class_entry *class_
 	zval property_xmlEncoding_default_value;
 	ZVAL_UNDEF(&property_xmlEncoding_default_value);
 	zend_string *property_xmlEncoding_name = zend_string_init("xmlEncoding", sizeof("xmlEncoding") - 1, 1);
-	zend_declare_typed_property(class_entry, property_xmlEncoding_name, &property_xmlEncoding_default_value, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_MASK(MAY_BE_STRING|MAY_BE_NULL));
+	zend_declare_typed_property(class_entry, property_xmlEncoding_name, &property_xmlEncoding_default_value, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_MASK(MAY_BE_STRING));
 	zend_string_release(property_xmlEncoding_name);
 
 	zval property_xmlStandalone_default_value;
