@@ -301,7 +301,7 @@ static void php_xpath_eval(INTERNAL_FUNCTION_PARAMETERS, int type, bool modern) 
 
 		if (ns != NULL) {
 			while (ns[nsnbr] != NULL)
-			nsnbr++;
+				nsnbr++;
 		}
 	}
 
@@ -324,7 +324,7 @@ static void php_xpath_eval(INTERNAL_FUNCTION_PARAMETERS, int type, bool modern) 
 			}
 			RETURN_THROWS();
 		} else {
-			/* TODO Add Warning? */
+			/* Should have already emit a warning by libxml */
 			RETURN_FALSE;
 		}
 	}
