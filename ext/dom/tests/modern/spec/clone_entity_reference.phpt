@@ -33,7 +33,7 @@ object(DOM\Entity)#4 (17) {
   ["nodeName"]=>
   string(3) "foo"
   ["baseURI"]=>
-  NULL
+  string(20) "/home/niels/php-src/"
   ["isConnected"]=>
   bool(true)
   ["ownerDocument"]=>

@@ -90,7 +90,7 @@ object(DOM\Entity)#4 (17) {
   ["nodeName"]=>
   string(4) "test"
   ["baseURI"]=>
-  NULL
+  string(20) "/home/niels/php-src/"
   ["isConnected"]=>
   bool(true)
   ["ownerDocument"]=>
