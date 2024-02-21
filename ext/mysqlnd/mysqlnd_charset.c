@@ -837,6 +837,7 @@ PHPAPI zend_ulong mysqlnd_cset_escape_slashes(const MYSQLND_CHARSET * const cset
 				escapestr--;
 				continue;
 			} else if (cset->mb_charlen(*escapestr) > 1) {
+				/* TODO: check if this branch can actually be taken */
 				esc = *escapestr;
 			}
 		}
