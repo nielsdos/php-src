@@ -125,6 +125,7 @@ static inline dom_object_namespace_node *php_dom_namespace_node_obj_from_obj(zen
 
 #define DOM_HTML_NO_DEFAULT_NS (1U << 31)
 
+void dom_objects_free_storage(zend_object *object);
 dom_object *dom_object_get_data(xmlNodePtr obj);
 dom_doc_propsptr dom_get_doc_props(php_libxml_ref_obj *document);
 libxml_doc_props const* dom_get_doc_props_read_only(const php_libxml_ref_obj *document);
