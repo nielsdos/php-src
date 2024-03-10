@@ -32,10 +32,7 @@ typedef struct _dom_token_list_it {
 	zend_object_iterator it;
 	/* Store the hash position here to allow multiple (e.g. nested) iterations of the same token list. */
 	HashPosition pos;
-	/* Modification tracking: when the token list changes, we increment its counter.
-	 * When this counter no longer matches the counter of the token list, we know that it has changed and we
-	 * have to update the iteration index. */
-	size_t modification_nr;
+	php_libxml_cache_tag cache_tag;
 } dom_token_list_it;
 
 /* https://infra.spec.whatwg.org/#ascii-whitespace */
@@ -137,7 +134,7 @@ static void dom_token_list_update(dom_token_list_object *intern)
 	const xmlAttr *attr = dom_token_list_get_attr(intern);
 	HashTable *token_set = TOKEN_LIST_GET_SET(intern);
 
-	intern->modification_nr++;
+	php_libxml_invalidate_cache_tag(&intern->cache_tag);
 
 	/* 1. If the associated element does not have an associated attribute and token set is empty, then return. */
 	if (attr == NULL && zend_hash_num_elements(token_set) == 0) {
@@ -182,7 +179,7 @@ static void dom_token_list_ensure_set_up_to_date(dom_token_list_object *intern)
 
 	/* xmlStrEqual will automatically handle equality rules of NULL vs "" (etc) correctly. */
 	if (!xmlStrEqual(value, (const xmlChar *) intern->cached_string)) {
-		intern->modification_nr++;
+		php_libxml_invalidate_cache_tag(&intern->cache_tag);
 		efree(intern->cached_string);
 		HashTable *token_set = TOKEN_LIST_GET_SET(intern);
 		zend_hash_destroy(token_set);
@@ -199,7 +196,7 @@ void dom_token_list_ctor(dom_token_list_object *intern, dom_object *element_obj)
 	element_obj->document->refcount++;
 	intern->dom.document = element_obj->document;
 
-	intern->modification_nr = 0;
+	intern->cache_tag.modification_nr = 0;
 
 	ALLOC_HASHTABLE(TOKEN_LIST_GET_SET(intern));
 	HashTable *token_set = TOKEN_LIST_GET_SET(intern);
@@ -642,7 +639,7 @@ static void dom_token_list_it_get_current_key(zend_object_iterator *iter, zval *
 
 	dom_token_list_ensure_set_up_to_date(object);
 
-	if (UNEXPECTED(object->modification_nr != iterator->modification_nr)) {
+	if (UNEXPECTED(php_libxml_is_cache_tag_stale(&object->cache_tag, &iterator->cache_tag))) {
 		iter->index = 0;
 		HashPosition pos;
 		HashTable *token_set = TOKEN_LIST_GET_SET(object);
@@ -704,7 +701,7 @@ zend_object_iterator *dom_token_list_get_iterator(zend_class_entry *ce, zval *ob
 	ZVAL_OBJ_COPY(&iterator->it.data, Z_OBJ_P(object));
 
 	iterator->it.funcs = &dom_token_list_it_funcs;
-	iterator->modification_nr = intern->modification_nr;
+	iterator->cache_tag = intern->cache_tag;
 
 	return &iterator->it;
 }
