@@ -145,6 +145,29 @@ MYSQLND_METHOD(mysqlnd_vio, open_pipe)(MYSQLND_VIO * const vio, const MYSQLND_CS
 		SET_CLIENT_ERROR(error_info, CR_CONNECTION_ERROR, UNKNOWN_SQLSTATE, "Unknown error while connecting");
 		DBG_RETURN(NULL);
 	}
+
+	if (persistent) {
+		/* This is a similar hack as for mysqlnd_vio::open_tcp_or_unix.
+		 * The main difference here is that we have no access to the hashed key.
+		 * We can however perform a loop over the persistent resource list to find
+		 * which one corresponds to our newly allocated stream.
+		 * This loop is pretty cheap because it will normally always be the first hit
+		 * when we loop backwards over the list. */
+		Bucket *bucket;
+		/* Use a bucket loop to make deletion cheap. */
+		ZEND_HASH_MAP_REVERSE_FOREACH_BUCKET(&EG(persistent_list), bucket) {
+			zend_resource *current_res = Z_RES(bucket->val);
+			if (current_res->ptr == net_stream) {
+				dtor_func_t origin_dtor = EG(persistent_list).pDestructor;
+				EG(persistent_list).pDestructor = NULL;
+				zend_hash_del_bucket(&EG(persistent_list), bucket);
+				EG(persistent_list).pDestructor = origin_dtor;
+				pefree(current_res, 1);
+				break;
+			}
+		} ZEND_HASH_FOREACH_END();
+	}
+
 	mysqlnd_fixup_regular_list(net_stream);
 
 	DBG_RETURN(net_stream);
