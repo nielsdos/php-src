@@ -3265,7 +3265,7 @@ function toolset_setup_common_cflags()
 		}
 
 		if (PHP_SANITIZER == "yes") {
-			ADD_FLAG('CFLAGS', ' /fsanitize=address ');
+			ADD_FLAG('CFLAGS', ' /fsanitize=address /wd5072 ');
 		}
 
 		if (PHP_DEBUG == "yes") {
