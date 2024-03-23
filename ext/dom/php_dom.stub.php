@@ -1587,6 +1587,11 @@ namespace DOM
 
     final class HTMLDocument extends Document
     {
+        /* TODO: HTMLElement ? */
+        public ?Element $body;
+        /** @readonly */
+        public ?Element $head;
+
         public static function createEmpty(string $encoding = "UTF-8"): HTMLDocument {}
 
         public static function createFromFile(string $path, int $options = 0, ?string $overrideEncoding = null): HTMLDocument {}

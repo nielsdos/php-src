@@ -1,5 +1,5 @@
 /* This is a generated file, edit the .stub.php file instead.
- * Stub hash: 59b592b969e62100af3e3d73212cf513ab8d3ab8 */
+ * Stub hash: c07e43de66bd69968329e9c7df9ad8697c992d4c */
 
 ZEND_BEGIN_ARG_WITH_RETURN_OBJ_INFO_EX(arginfo_dom_import_simplexml, 0, 1, DOMElement, 0)
 	ZEND_ARG_TYPE_INFO(0, node, IS_OBJECT, 0)
@@ -3413,6 +3413,20 @@ static zend_class_entry *register_class_DOM_HTMLDocument(zend_class_entry *class
 	INIT_NS_CLASS_ENTRY(ce, "DOM", "HTMLDocument", class_DOM_HTMLDocument_methods);
 	class_entry = zend_register_internal_class_ex(&ce, class_entry_DOM_Document);
 	class_entry->ce_flags |= ZEND_ACC_FINAL;
+
+	zval property_body_default_value;
+	ZVAL_UNDEF(&property_body_default_value);
+	zend_string *property_body_name = zend_string_init("body", sizeof("body") - 1, 1);
+	zend_string *property_body_class_DOM_Element = zend_string_init("DOM\\Element", sizeof("DOM\\Element")-1, 1);
+	zend_declare_typed_property(class_entry, property_body_name, &property_body_default_value, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_CLASS(property_body_class_DOM_Element, 0, MAY_BE_NULL));
+	zend_string_release(property_body_name);
+
+	zval property_head_default_value;
+	ZVAL_UNDEF(&property_head_default_value);
+	zend_string *property_head_name = zend_string_init("head", sizeof("head") - 1, 1);
+	zend_string *property_head_class_DOM_Element = zend_string_init("DOM\\Element", sizeof("DOM\\Element")-1, 1);
+	zend_declare_typed_property(class_entry, property_head_name, &property_head_default_value, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_CLASS(property_head_class_DOM_Element, 0, MAY_BE_NULL));
+	zend_string_release(property_head_name);
 
 	return class_entry;
 }
