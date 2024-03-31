@@ -19,6 +19,8 @@ $file = "<?php __HALT_COMPILER(); ?>";
 $files['a'] = array('cont' => 'a');
 include 'files/phar_test.inc';
 
+unset($phar);
+
 $phar = new Phar($fname);
 $phar->setMetadata((object) ['my' => 'friend']);
 // NOTE: Phar will use the cached value of metadata if setMetaData was called on that Phar path before.
