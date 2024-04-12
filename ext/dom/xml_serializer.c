@@ -534,7 +534,7 @@ static int dom_xml_common_text_serialization(xmlOutputBufferPtr out, const char 
 	return xmlOutputBufferWrite(out, content - last_output, last_output);
 }
 
-/* https://w3c.github.io/DOM-Parsing/#dfn-xml-serializing-an-element-node */
+/* https://w3c.github.io/DOM-Parsing/#xml-serializing-a-text-node */
 static zend_always_inline int dom_xml_serialize_text_node(xmlOutputBufferPtr out, xmlNodePtr text)
 {
 	/* 1. If the require well-formed flag is set ...
