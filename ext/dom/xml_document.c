@@ -175,7 +175,7 @@ static void load_from_helper(INTERNAL_FUNCTION_PARAMETERS, int mode)
 	if (UNEXPECTED(lxml_doc == NULL || lxml_doc == DOM_DOCUMENT_MALFORMED)) {
 		if (!EG(exception)) {
 			if (lxml_doc == DOM_DOCUMENT_MALFORMED) {
-				zend_throw_exception_ex(NULL, 0, "XML document is malformed");
+				php_dom_throw_error_with_message(SYNTAX_ERR, "XML fragment is not well-formed", true);
 			} else {
 				if (mode == DOM_LOAD_FILE) {
 					zend_throw_exception_ex(NULL, 0, "Cannot open file '%s'", source);
