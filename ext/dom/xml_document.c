@@ -262,7 +262,7 @@ static zend_string *php_new_dom_dump_node_to_str_ex(xmlNodePtr node, int options
 		xmlCharEncodingHandlerPtr handler = xmlFindCharEncodingHandler(encoding);
 		xmlOutputBufferPtr out = xmlOutputBufferCreateIO(php_new_dom_write_smart_str, NULL, &str, handler);
 		if (EXPECTED(out != NULL)) {
-			status = dom_xml_serialize(ctxt, out, node, format);
+			status = dom_xml_serialize(ctxt, out, node, format, false);
 			status |= xmlOutputBufferFlush(out);
 			status |= xmlOutputBufferClose(out);
 		} else {
@@ -303,7 +303,7 @@ zend_long php_new_dom_dump_node_to_file(const char *filename, xmlDocPtr doc, xml
 	int status = -1;
 	xmlSaveCtxtPtr ctxt = xmlSaveToIO(out->writecallback, NULL, stream, encoding, XML_SAVE_AS_XML);
 	if (EXPECTED(ctxt != NULL)) {
-		status = dom_xml_serialize(ctxt, out, node, format);
+		status = dom_xml_serialize(ctxt, out, node, format, false);
 		status |= xmlOutputBufferFlush(out);
 		(void) xmlSaveClose(ctxt);
 	}
