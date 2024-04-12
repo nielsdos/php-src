@@ -23,6 +23,9 @@
 #include "php_dom.h"
 #include "dom_properties.h"
 #include "html5_serializer.h"
+#include "xml_serializer.h"
+#include "domexception.h"
+#include <libxml/xmlsave.h>
 
 static zend_result dom_inner_html_write_string(void *application_data, const char *buf)
 {
@@ -38,11 +41,18 @@ static zend_result dom_inner_html_write_string_len(void *application_data, const
 	return SUCCESS;
 }
 
+static int dom_write_smart_str(void *context, const char *buffer, int len)
+{
+	smart_str *str = context;
+	smart_str_appendl(str, buffer, len);
+	return len;
+}
+
 /* https://w3c.github.io/DOM-Parsing/#the-innerhtml-mixin
  * and https://w3c.github.io/DOM-Parsing/#dfn-fragment-serializing-algorithm */
 zend_result dom_element_inner_html_read(dom_object *obj, zval *retval)
 {
-	DOM_PROP_NODE(const xmlNode *, node, obj);
+	DOM_PROP_NODE(xmlNodePtr, node, obj);
 
 	/* 1. Let context document be the value of node's node document. */
 	const xmlDoc *context_document = node->doc;
@@ -61,8 +71,33 @@ zend_result dom_element_inner_html_read(dom_object *obj, zval *retval)
 	else {
 		ZEND_ASSERT(context_document->type == XML_DOCUMENT_NODE);
 
-		/* Note: the innerHTML mixin sets the well-formed flag to true. */
-		abort(); // TODO
+		int status = -1;
+		smart_str str = {0};
+		/* No need to check buf's return value, as xmlSaveToBuffer() will fail instead. */
+		xmlSaveCtxtPtr ctxt = xmlSaveToIO(dom_write_smart_str, NULL, &str, "UTF-8", XML_SAVE_AS_XML);
+		if (EXPECTED(ctxt != NULL)) {
+			xmlCharEncodingHandlerPtr handler = xmlFindCharEncodingHandler("UTF-8");
+			xmlOutputBufferPtr out = xmlOutputBufferCreateIO(dom_write_smart_str, NULL, &str, handler);
+			if (EXPECTED(out != NULL)) {
+				/* Note: the innerHTML mixin sets the well-formed flag to true. */
+				xmlNodePtr child = node->children;
+				status = 0;
+				while (child != NULL && status == 0) {
+					status = dom_xml_serialize(ctxt, out, child, false, true);
+					child = child->next;
+				}
+				status |= xmlOutputBufferFlush(out);
+				status |= xmlOutputBufferClose(out);
+			}
+			(void) xmlSaveClose(ctxt);
+			xmlCharEncCloseFunc(handler);
+		}
+		if (UNEXPECTED(status < 0)) {
+			smart_str_free_ex(&str, false);
+			php_dom_throw_error_with_message(SYNTAX_ERR, "The resulting XML serialization is not well-formed", true);
+			return FAILURE;
+		}
+		ZVAL_STR(retval, smart_str_extract(&str));
 	}
 
 	return SUCCESS;
