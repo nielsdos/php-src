@@ -22,10 +22,17 @@
 #if defined(HAVE_LIBXML) && defined(HAVE_DOM)
 #include "php_dom.h"
 #include "dom_properties.h"
+#include "html5_parser.h"
 #include "html5_serializer.h"
 #include "xml_serializer.h"
 #include "domexception.h"
 #include <libxml/xmlsave.h>
+#include <lexbor/dom/interfaces/element.h>
+#include <lexbor/html/interfaces/document.h>
+#include <lexbor/tag/tag.h>
+#include <lexbor/encoding/encoding.h>
+
+/* Spec date: 2024-04-12 */
 
 static zend_result dom_inner_html_write_string(void *application_data, const char *buf)
 {
@@ -101,6 +108,130 @@ zend_result dom_element_inner_html_read(dom_object *obj, zval *retval)
 	}
 
 	return SUCCESS;
+}
+
+static lxb_dom_node_t *dom_html_fragment_lexbor_parse(lxb_html_document_t *document, lxb_dom_element_t *element, const zend_string *input)
+{
+	lxb_status_t status = lxb_html_document_parse_fragment_chunk_begin(document, element);
+	if (status != LXB_STATUS_OK) {
+		return NULL;
+	}
+
+	const lxb_encoding_data_t *encoding_data = lxb_encoding_data(LXB_ENCODING_UTF_8);
+	lxb_encoding_decode_t decode;
+	lxb_encoding_decode_init_single(&decode, encoding_data);
+
+	const lxb_char_t *buf_ref = (const lxb_char_t *) ZSTR_VAL(input);
+	if (ZSTR_IS_VALID_UTF8(input)) {
+		/* If we know the input is valid UTF-8, we don't have to perform checks and replace invalid sequences. */
+		status = lxb_html_document_parse_fragment_chunk(document, buf_ref, ZSTR_LEN(input));
+		if (UNEXPECTED(status != LXB_STATUS_OK)) {
+			return NULL;
+		}
+	} else {
+		/* See dom_decode_encode_fast_path(), simplified version for in-memory use-case. */
+		const lxb_char_t *buf_end = buf_ref + ZSTR_LEN(input);
+		const lxb_char_t *last_output = buf_ref;
+		while (buf_ref < buf_end) {
+			if (decode.u.utf_8.need == 0 && *buf_ref < 0x80) {
+				buf_ref++;
+				continue;
+			}
+
+			const lxb_char_t *buf_ref_backup = buf_ref;
+			lxb_codepoint_t codepoint = lxb_encoding_decode_utf_8_single(&decode, &buf_ref, buf_end);
+			if (UNEXPECTED(codepoint > LXB_ENCODING_MAX_CODEPOINT)) {
+				status = lxb_html_document_parse_fragment_chunk(document, last_output, buf_ref_backup - last_output);
+				if (UNEXPECTED(status != LXB_STATUS_OK)) {
+					return NULL;
+				}
+
+				status = lxb_html_document_parse_fragment_chunk(document, LXB_ENCODING_REPLACEMENT_BYTES, LXB_ENCODING_REPLACEMENT_SIZE);
+				if (UNEXPECTED(status != LXB_STATUS_OK)) {
+					return NULL;
+				}
+
+				last_output = buf_ref;
+			}
+		}
+
+		if (buf_ref != last_output) {
+			status = lxb_html_document_parse_fragment_chunk(document, last_output, buf_ref - last_output);
+			if (UNEXPECTED(status != LXB_STATUS_OK)) {
+				return NULL;
+			}
+		}
+	}
+
+	return lxb_html_document_parse_fragment_chunk_end(document);
+}
+
+static lxb_dom_document_cmode_t dom_translate_quirks_mode(php_libxml_quirks_mode quirks_mode)
+{
+	switch (quirks_mode) {
+		case PHP_LIBXML_NO_QUIRKS: return LXB_DOM_DOCUMENT_CMODE_NO_QUIRKS;
+		case PHP_LIBXML_LIMITED_QUIRKS: return LXB_DOM_DOCUMENT_CMODE_LIMITED_QUIRKS;
+		case PHP_LIBXML_QUIRKS: return LXB_DOM_DOCUMENT_CMODE_QUIRKS;
+		EMPTY_SWITCH_DEFAULT_CASE();
+	}
+}
+
+/* https://html.spec.whatwg.org/#html-fragment-parsing-algorithm */
+static xmlNodePtr dom_html_fragment_parsing_algorithm(dom_object *obj, xmlNodePtr context_node, const zend_string *input, php_libxml_quirks_mode quirks_mode)
+{
+	/* The whole algorithm is implemented in Lexbor, we just have to be the adapter between the
+	 * data structures used in PHP and what Lexbor expects. */
+
+	lxb_html_document_t *document = lxb_html_document_create();
+	document->dom_document.compat_mode = dom_translate_quirks_mode(quirks_mode);
+	lxb_dom_element_t *element = lxb_dom_element_interface_create(&document->dom_document);
+
+	const lxb_tag_data_t *tag_data = lxb_tag_data_by_name(document->dom_document.tags, (lxb_char_t *) context_node->name, xmlStrlen(context_node->name));
+	element->node.local_name = tag_data == NULL ? LXB_TAG__UNDEF : tag_data->tag_id;
+
+	const lxb_char_t *ns_uri;
+	size_t ns_uri_len;
+	if (context_node->ns == NULL || context_node->ns->href == NULL) {
+		ns_uri = (lxb_char_t *) "";
+		ns_uri_len = 0;
+	} else {
+		ns_uri = context_node->ns->href;
+		ns_uri_len = xmlStrlen(ns_uri);
+	}
+	const lxb_ns_data_t *ns_data = lxb_ns_data_by_link(document->dom_document.ns, ns_uri, ns_uri_len);
+	element->node.ns = ns_data == NULL ? LXB_NS__UNDEF : ns_data->ns_id;
+
+	lxb_dom_node_t *node = dom_html_fragment_lexbor_parse(document, element, input);
+	xmlNodePtr fragment = NULL;
+	if (node != NULL) {
+		/* node->last_child could be NULL, but that is allowed. */
+		lexbor_libxml2_bridge_status status = lexbor_libxml2_bridge_convert_fragment(node->last_child, context_node->doc, &fragment, true, true, php_dom_get_ns_mapper(obj));
+		if (UNEXPECTED(status != LEXBOR_LIBXML2_BRIDGE_STATUS_OK)) {
+			php_dom_throw_error(INVALID_STATE_ERR, true);
+		}
+	} else {
+		php_dom_throw_error(INVALID_STATE_ERR, true);
+	}
+
+	lxb_html_document_destroy(document);
+
+	return fragment;
+}
+
+/* https://w3c.github.io/DOM-Parsing/#the-innerhtml-mixin
+ * and https://w3c.github.io/DOM-Parsing/#dfn-fragment-parsing-algorithm */
+zend_result dom_element_inner_html_write(dom_object *obj, zval *newval)
+{
+	DOM_PROP_NODE(xmlNodePtr, context_element, obj);
+
+	xmlNodePtr fragment = dom_html_fragment_parsing_algorithm(obj, context_element, Z_STR_P(newval), obj->document->quirks_mode);
+	if (fragment == NULL) {
+		return FAILURE;
+	}
+
+	/* We skip the steps involving the template element as context node since we don't do special handling for that. */
+	dom_remove_all_children(context_element);
+	return php_dom_pre_insert(obj->document, fragment, context_element, NULL) ? SUCCESS : FAILURE;
 }
 
 #endif
