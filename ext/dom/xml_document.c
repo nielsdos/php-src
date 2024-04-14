@@ -71,7 +71,7 @@ static bool check_options_validity(uint32_t arg_num, zend_long options)
  * So in principle we could just ignore them outright.
  * However, step 10 in https://html.spec.whatwg.org/multipage/parsing.html#create-an-element-for-the-token (Date 2023-12-15)
  * requires us to have the declaration as an attribute available */
-static void dom_mark_namespaces_as_attributes_too(php_dom_libxml_ns_mapper *ns_mapper, xmlDocPtr doc)
+void dom_mark_namespaces_as_attributes_too(php_dom_libxml_ns_mapper *ns_mapper, xmlDocPtr doc)
 {
 	xmlNodePtr node = doc->children;
 	while (node != NULL) {
