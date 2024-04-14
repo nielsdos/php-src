@@ -32,7 +32,7 @@
 #include <lexbor/tag/tag.h>
 #include <lexbor/encoding/encoding.h>
 
-/* Spec date: 2024-04-12 */
+/* Spec date: 2024-04-14 */
 
 static zend_result dom_inner_html_write_string(void *application_data, const char *buf)
 {
@@ -218,20 +218,128 @@ static xmlNodePtr dom_html_fragment_parsing_algorithm(dom_object *obj, xmlNodePt
 	return fragment;
 }
 
+static void dom_xml_parser_tag_name(const xmlNode *context_node, xmlParserCtxtPtr parser)
+{
+	if (context_node->ns != NULL && context_node->ns->prefix != NULL) {
+		xmlParseChunk(parser, (const char *) context_node->ns->prefix, xmlStrlen(context_node->ns->prefix), 0);
+		xmlParseChunk(parser, ":", 1, 0);
+	}
+
+	xmlParseChunk(parser, (const char *) context_node->name, xmlStrlen(context_node->name), 0);
+}
+
+static void dom_xml_fragment_parsing_algorithm_parse(php_dom_libxml_ns_mapper *ns_mapper, const xmlNode *context_node, const zend_string *input, xmlParserCtxtPtr parser)
+{
+	xmlParseChunk(parser, "<", 1, 0);
+	dom_xml_parser_tag_name(context_node, parser);
+
+	/* Namespaces: we have to declare all in-scope namespaces including the default namespace */
+	/* xmlns attributes */
+	php_dom_in_scope_ns in_scope_ns = php_dom_get_in_scope_ns(ns_mapper, context_node, true);
+	for (size_t i = 0; i < in_scope_ns.count; i++) {
+		const xmlNs *ns = in_scope_ns.list[i];
+		xmlParseChunk(parser, " xmlns:", 7, 0);
+		ZEND_ASSERT(ns->prefix != NULL);
+		xmlParseChunk(parser, (const char *) ns->prefix, xmlStrlen(ns->prefix), 0);
+		xmlParseChunk(parser, "=\"", 2, 0);
+		xmlParseChunk(parser, (const char *) ns->href, xmlStrlen(ns->href), 0);
+		xmlParseChunk(parser, "\"", 1, 0);
+	}
+	php_dom_in_scope_ns_destroy(&in_scope_ns);
+	/* default namespace */
+	const char *default_ns = dom_locate_a_namespace(context_node, NULL);
+	if (default_ns != NULL) {
+		xmlParseChunk(parser, " xmlns=\"", 8, 0);
+		xmlParseChunk(parser, default_ns, strlen(default_ns), 0);
+		xmlParseChunk(parser, "\"", 1, 0);
+	}
+
+	xmlParseChunk(parser, ">", 1, 0);
+
+	xmlParseChunk(parser, (const char *) ZSTR_VAL(input), ZSTR_LEN(input), 0);
+
+	xmlParseChunk(parser, "</", 2, 0);
+	dom_xml_parser_tag_name(context_node, parser);
+	xmlParseChunk(parser, ">", 1, 1);
+}
+
+/* https://html.spec.whatwg.org/#xml-fragment-parsing-algorithm */
+static xmlNodePtr dom_xml_fragment_parsing_algorithm(dom_object *obj, const xmlNode *context_node, const zend_string *input)
+{
+	/* Steps 1-4 below */
+	xmlParserCtxtPtr parser = xmlCreatePushParserCtxt(NULL, NULL, NULL, 0, NULL);
+	if (UNEXPECTED(parser == NULL)) {
+		php_dom_throw_error(INVALID_STATE_ERR, true);
+		return NULL;
+	}
+
+	php_libxml_sanitize_parse_ctxt_options(parser);
+	xmlCtxtUseOptions(parser, XML_PARSE_IGNORE_ENC | XML_PARSE_NOERROR | XML_PARSE_NOWARNING);
+
+	xmlCharEncodingHandlerPtr encoding = xmlFindCharEncodingHandler("UTF-8");
+	(void) xmlSwitchToEncoding(parser, encoding);
+
+	php_dom_libxml_ns_mapper *ns_mapper = php_dom_get_ns_mapper(obj);
+	dom_xml_fragment_parsing_algorithm_parse(ns_mapper, context_node, input, parser);
+
+	/* 5. If there is an XML well-formedness or XML namespace well-formedness error, then throw a "SyntaxError" DOMException. */
+	if (!parser->wellFormed || !parser->nsWellFormed) {
+		xmlFreeDoc(parser->myDoc);
+		xmlFreeParserCtxt(parser);
+		php_dom_throw_error_with_message(SYNTAX_ERR, "XML fragment is not well-formed", true);
+		return NULL;
+	}
+
+	xmlDocPtr doc = parser->myDoc;
+	xmlFreeParserCtxt(parser);
+
+	if (EXPECTED(doc != NULL)) {
+		/* 6. If the document element of the resulting Document has any sibling nodes, then throw a "SyntaxError" DOMException. */
+		xmlNodePtr document_element = doc->children;
+		if (document_element == NULL || document_element->next != NULL) {
+			xmlFreeDoc(doc);
+			php_dom_throw_error_with_message(SYNTAX_ERR, "XML fragment is not well-formed", true);
+			return NULL;
+		}
+
+		/* 7. Return the child nodes of the document element of the resulting Document, in tree order. */
+		xmlNodePtr fragment = xmlNewDocFragment(context_node->doc);
+		if (EXPECTED(fragment != NULL)) {
+			xmlNodePtr child = document_element->children;
+			/* Yes, we have to call both xmlSetTreeDoc() prior to xmlAddChildList()
+			 * because xmlAddChildList() _only_ sets the tree for the topmost elements in the subtree! */
+			xmlSetTreeDoc(document_element, context_node->doc);
+			xmlAddChildList(fragment, child);
+			dom_mark_namespaces_as_attributes_too(ns_mapper, doc);
+			document_element->children = NULL;
+			document_element->last = NULL;
+		}
+		xmlFreeDoc(doc);
+		return fragment;
+	}
+	return NULL;
+}
+
 /* https://w3c.github.io/DOM-Parsing/#the-innerhtml-mixin
  * and https://w3c.github.io/DOM-Parsing/#dfn-fragment-parsing-algorithm */
 zend_result dom_element_inner_html_write(dom_object *obj, zval *newval)
 {
-	DOM_PROP_NODE(xmlNodePtr, context_element, obj);
+	DOM_PROP_NODE(xmlNodePtr, context_node, obj);
 
-	xmlNodePtr fragment = dom_html_fragment_parsing_algorithm(obj, context_element, Z_STR_P(newval), obj->document->quirks_mode);
+	xmlNodePtr fragment;
+	if (context_node->doc->type == XML_DOCUMENT_NODE) {
+		fragment = dom_xml_fragment_parsing_algorithm(obj, context_node, Z_STR_P(newval));
+	} else {
+		fragment = dom_html_fragment_parsing_algorithm(obj, context_node, Z_STR_P(newval), obj->document->quirks_mode);
+	}
+
 	if (fragment == NULL) {
 		return FAILURE;
 	}
 
 	/* We skip the steps involving the template element as context node since we don't do special handling for that. */
-	dom_remove_all_children(context_element);
-	return php_dom_pre_insert(obj->document, fragment, context_element, NULL) ? SUCCESS : FAILURE;
+	dom_remove_all_children(context_node);
+	return php_dom_pre_insert(obj->document, fragment, context_node, NULL) ? SUCCESS : FAILURE;
 }
 
 #endif
