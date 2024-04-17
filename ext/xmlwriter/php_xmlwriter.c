@@ -46,12 +46,8 @@ typedef int (*xmlwriter_read_int_t)(xmlTextWriterPtr writer);
 
 static zend_object_handlers xmlwriter_object_handlers;
 
-/* {{{{ xmlwriter_object_dtor */
-static void xmlwriter_object_dtor(zend_object *object)
+static zend_always_inline void xmlwriter_destroy_libxml_objects(ze_xmlwriter_object *intern)
 {
-	ze_xmlwriter_object *intern = php_xmlwriter_fetch_object(object);
-
-	/* freeing the resource here may leak, but otherwise we may use it after it has been freed */
 	if (intern->ptr) {
 		xmlFreeTextWriter(intern->ptr);
 		intern->ptr = NULL;
@@ -60,6 +56,15 @@ static void xmlwriter_object_dtor(zend_object *object)
 		xmlBufferFree(intern->output);
 		intern->output = NULL;
 	}
+}
+
+/* {{{{ xmlwriter_object_dtor */
+static void xmlwriter_object_dtor(zend_object *object)
+{
+	ze_xmlwriter_object *intern = php_xmlwriter_fetch_object(object);
+
+	/* freeing the resource here may leak, but otherwise we may use it after it has been freed */
+	xmlwriter_destroy_libxml_objects(intern);
 	zend_objects_destroy_object(object);
 }
 /* }}} */
@@ -813,12 +818,7 @@ PHP_FUNCTION(xmlwriter_open_uri)
 	}
 
 	if (self) {
-		if (ze_obj->ptr) {
-			xmlFreeTextWriter(ze_obj->ptr);
-		}
-		if (ze_obj->output) {
-			xmlBufferFree(ze_obj->output);
-		}
+		xmlwriter_destroy_libxml_objects(ze_obj);
 		ze_obj->ptr = ptr;
 		ze_obj->output = NULL;
 		RETURN_TRUE;
@@ -862,12 +862,7 @@ PHP_FUNCTION(xmlwriter_open_memory)
 	}
 
 	if (self) {
-		if (ze_obj->ptr) {
-			xmlFreeTextWriter(ze_obj->ptr);
-		}
-		if (ze_obj->output) {
-			xmlBufferFree(ze_obj->output);
-		}
+		xmlwriter_destroy_libxml_objects(ze_obj);
 		ze_obj->ptr = ptr;
 		ze_obj->output = buffer;
 		RETURN_TRUE;
@@ -880,6 +875,59 @@ PHP_FUNCTION(xmlwriter_open_memory)
 
 }
 /* }}} */
+
+static int xml_writer_stream_write(void *context, const char *buffer, int len)
+{
+	zend_resource *resource = context;
+	if (EXPECTED(resource->ptr)) {
+		php_stream *stream = resource->ptr;
+		return php_stream_write(stream, buffer, len);
+	}
+	return -1;
+}
+
+static int xml_writer_stream_close(void *context)
+{
+	zend_resource *resource = context;
+	/* Don't close it as others may still use it! We don't own the resource!
+	 * Just delete our reference (and clean up if we're the last one). */
+	zend_list_delete(resource);
+	return 0;
+}
+
+PHP_METHOD(XMLWriter, openStream)
+{
+	zval *stream_zv;
+	php_stream *stream;
+
+	ZEND_PARSE_PARAMETERS_START(1, 1)
+		Z_PARAM_RESOURCE(stream_zv)
+	ZEND_PARSE_PARAMETERS_END();
+
+	php_stream_from_res(stream, Z_RES_P(stream_zv));
+
+	xmlOutputBufferPtr output_buffer = xmlOutputBufferCreateIO(xml_writer_stream_write, xml_writer_stream_close, stream->res, NULL);
+	if (UNEXPECTED(output_buffer == NULL)) {
+		zend_throw_error(NULL, "Out of memory");
+		RETURN_THROWS();
+	}
+
+	/* When the buffer is closed (even in error paths) the reference is destroyed. */
+	Z_ADDREF_P(stream_zv);
+
+	xmlTextWriterPtr writer = xmlNewTextWriter(output_buffer);
+	if (UNEXPECTED(writer == NULL)) {
+		xmlOutputBufferClose(output_buffer);
+		zend_throw_error(NULL, "Out of memory");
+		RETURN_THROWS();
+	}
+
+	ze_xmlwriter_object *ze_obj = Z_XMLWRITER_P(ZEND_THIS);
+	xmlwriter_destroy_libxml_objects(ze_obj);
+	ze_obj->ptr = writer;
+	/* output_buffer is owned by writer, and so writer will clean that up for us. */
+	ze_obj->output = NULL;
+}
 
 /* {{{ php_xmlwriter_flush */
 static void php_xmlwriter_flush(INTERNAL_FUNCTION_PARAMETERS, int force_string) {

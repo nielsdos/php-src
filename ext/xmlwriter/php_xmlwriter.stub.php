@@ -102,6 +102,9 @@ class XMLWriter
      */
     public function openMemory(): bool {}
 
+    /** @param resource $stream */
+    public function openStream($stream): void {}
+
     /**
      * @tentative-return-type
      * @alias xmlwriter_set_indent
