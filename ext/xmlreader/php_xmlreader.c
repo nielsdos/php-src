@@ -791,6 +791,22 @@ PHP_METHOD(XMLReader, next)
 }
 /* }}} */
 
+static bool xmlreader_valid_encoding(const char *encoding)
+{
+	if (!encoding) {
+		return true;
+	}
+
+	/* Normally we could use xmlTextReaderConstEncoding() afterwards but libxml2 < 2.12.0 has a bug of course
+	 * where it returns NULL for some valid encodings instead. */
+	xmlCharEncodingHandlerPtr handler = xmlFindCharEncodingHandler(encoding);
+	if (!handler) {
+		return false;
+	}
+	xmlCharEncCloseFunc(handler);
+	return true;
+}
+
 /* {{{ Sets the URI that the XMLReader will parse. */
 PHP_METHOD(XMLReader, open)
 {
@@ -803,7 +819,7 @@ PHP_METHOD(XMLReader, open)
 	char resolved_path[MAXPATHLEN + 1];
 	xmlTextReaderPtr reader = NULL;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "p|s!l", &source, &source_len, &encoding, &encoding_len, &options) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "p|p!l", &source, &source_len, &encoding, &encoding_len, &options) == FAILURE) {
 		RETURN_THROWS();
 	}
 
@@ -819,9 +835,9 @@ PHP_METHOD(XMLReader, open)
 		RETURN_THROWS();
 	}
 
-	if (encoding && CHECK_NULL_PATH(encoding, encoding_len)) {
-		php_error_docref(NULL, E_WARNING, "Encoding must not contain NUL bytes");
-		RETURN_FALSE;
+	if (!xmlreader_valid_encoding(encoding)) {
+		zend_argument_value_error(2, "must be a valid character encoding");
+		RETURN_THROWS();
 	}
 
 	valid_file = _xmlreader_get_valid_file_path(source, resolved_path, MAXPATHLEN );
@@ -987,7 +1003,7 @@ PHP_METHOD(XMLReader, XML)
 	xmlParserInputBufferPtr inputbfr;
 	xmlTextReaderPtr reader;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "s|s!l", &source, &source_len, &encoding, &encoding_len, &options) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "s|p!l", &source, &source_len, &encoding, &encoding_len, &options) == FAILURE) {
 		RETURN_THROWS();
 	}
 
@@ -1003,9 +1019,9 @@ PHP_METHOD(XMLReader, XML)
 		RETURN_THROWS();
 	}
 
-	if (encoding && CHECK_NULL_PATH(encoding, encoding_len)) {
-		php_error_docref(NULL, E_WARNING, "Encoding must not contain NUL bytes");
-		RETURN_FALSE;
+	if (!xmlreader_valid_encoding(encoding)) {
+		zend_argument_value_error(2, "must be a valid character encoding");
+		RETURN_THROWS();
 	}
 
 	inputbfr = xmlParserInputBufferCreateMem(source, source_len, XML_CHAR_ENCODING_NONE);
