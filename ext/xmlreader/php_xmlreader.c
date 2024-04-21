@@ -166,6 +166,9 @@ static zend_function *xmlreader_get_method(zend_object **obj, zend_string *name,
 		return (zend_function*)&xmlreader_open_fn;
 	} else if (zend_string_equals_literal_ci(name, "xml")) {
 		return (zend_function*)&xmlreader_xml_fn;
+	} else if (zend_string_equals_literal_ci(name, "openStream")) {
+		zend_throw_error(NULL, "XMLReader::openStream() can only be called statically");
+		return NULL;
 	}
 	return zend_std_get_method(obj, name, key);
 }
@@ -866,6 +869,73 @@ PHP_METHOD(XMLReader, open)
 
 }
 /* }}} */
+
+static int xml_reader_stream_read(void *context, char *buffer, int len)
+{
+	zend_resource *resource = context;
+	if (EXPECTED(resource->ptr)) {
+		php_stream *stream = resource->ptr;
+		return php_stream_read(stream, buffer, len);
+	}
+	return -1;
+}
+
+static int xml_reader_stream_close(void *context)
+{
+	zend_resource *resource = context;
+	/* Don't close it as others may still use it! We don't own the resource!
+	 * Just delete our reference (and clean up if we're the last one). */
+	zend_list_delete(resource);
+	return 0;
+}
+
+PHP_METHOD(XMLReader, openStream)
+{
+	zval *stream_zv;
+	php_stream *stream;
+	char *base_uri = NULL;
+	char *encoding_name = NULL;
+	size_t base_uri_len, encoding_name_len;
+	zend_long flags = 0;
+
+	ZEND_PARSE_PARAMETERS_START(1, 4)
+		Z_PARAM_RESOURCE(stream_zv);
+		Z_PARAM_OPTIONAL
+		Z_PARAM_PATH_OR_NULL(base_uri, base_uri_len)
+		Z_PARAM_PATH_OR_NULL(encoding_name, encoding_name_len)
+		Z_PARAM_LONG(flags)
+	ZEND_PARSE_PARAMETERS_END();
+
+	php_stream_from_res(stream, Z_RES_P(stream_zv));
+
+	if (!xmlreader_valid_encoding(encoding_name)) {
+		zend_argument_value_error(3, "must be a valid character encoding");
+		RETURN_THROWS();
+	}
+
+	PHP_LIBXML_SANITIZE_GLOBALS(reader_for_stream);
+	xmlTextReaderPtr reader = xmlReaderForIO(
+		xml_reader_stream_read,
+		xml_reader_stream_close,
+		stream->res,
+		base_uri,
+		encoding_name,
+		flags
+	);
+	PHP_LIBXML_RESTORE_GLOBALS(reader_for_stream);
+
+	if (UNEXPECTED(reader == NULL)) {
+		zend_throw_error(NULL, "Could not construct XMLReader");
+		RETURN_THROWS();
+	}
+
+	/* When the reader is closed (even in error paths) the reference is destroyed. */
+	Z_ADDREF_P(stream_zv);
+
+	object_init_ex(return_value, xmlreader_class_entry);
+	xmlreader_object *intern = Z_XMLREADER_P(return_value);
+	intern->ptr = reader;
+}
 
 /* Not Yet Implemented in libxml - functions exist just not coded
 PHP_METHOD(XMLReader, resetState)

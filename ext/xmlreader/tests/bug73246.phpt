@@ -15,7 +15,13 @@ try {
 } catch (ValueError $e) {
     echo $e->getMessage(), "\n";
 }
+try {
+    XMLReader::openStream(fopen('php://memory', 'r'), encoding: "UTF\0-8");
+} catch (ValueError $e) {
+    echo $e->getMessage(), "\n";
+}
 ?>
 --EXPECT--
 XMLReader::open(): Argument #2 ($encoding) must not contain any null bytes
 XMLReader::XML(): Argument #2 ($encoding) must not contain any null bytes
+XMLReader::openStream(): Argument #3 ($encoding) must not contain any null bytes

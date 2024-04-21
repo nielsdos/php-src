@@ -175,6 +175,9 @@ class XMLReader
     /** @return bool|XMLReader */
     public static function open(string $uri, ?string $encoding = null, int $flags = 0) {} // TODO Return type shouldn't be dependent on the call scope
 
+    /** @param resource $stream */
+    public static function openStream($stream, ?string $baseUri = null, ?string $encoding = null, int $flags = 0): XMLReader {}
+
     /** @tentative-return-type */
     public function readInnerXml(): string {}
 
