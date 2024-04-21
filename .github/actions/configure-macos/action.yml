@@ -36,7 +36,7 @@ runs:
           --enable-exif \
           --with-zip \
           --with-zlib \
-          --enable-soap \
+          --enable-address-sanitizer \
           --enable-xmlreader \
           --with-xsl \
           --with-tidy="$BREW_OPT"/tidy-html5 \
