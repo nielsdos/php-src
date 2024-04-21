@@ -151,6 +151,15 @@ PHP 8.4 UPGRADE NOTES
     Passing an empty string to disable the handler is still allowed,
     but not recommended.
 
+- XMLReader:
+  . Passing an invalid character encoding to XMLReader::open() or
+    XMLReader::XML() now throws a ValueError. Passing a string containing NULL
+    bytes previously emitted a warning and now throws a ValueError as well.
+
+- XMLWriter:
+  . Passing a string containing NULL bytes previously emitted a warning and
+    now throws a ValueError.
+
 - XSL:
   . XSLTProcessor::setParameter() will now throw a ValueError when its arguments
     contain null bytes. This never actually worked correctly in the first place,
@@ -489,6 +498,12 @@ PHP 8.4 UPGRADE NOTES
   . Added the http_get_last_response_headers() and
     http_clear_last_response_headers() that allows retrieving the same content
     as the magic $http_response_header variable.
+
+- XMLReader:
+  . Added XMLReader::openStream().
+
+- XMLWriter:
+  . Added XMLWriter::openStream().
 
 - XSL:
   . Added XSLTProcessor::registerPhpFunctionNS().
