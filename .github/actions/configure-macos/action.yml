@@ -54,17 +54,9 @@ runs:
           --with-openssl \
           --with-gmp="$BREW_OPT"/gmp \
           --with-iconv="$BREW_OPT"/libiconv \
-          --enable-bcmath \
-          --enable-calendar \
-          --enable-ftp \
-          --enable-sysvmsg \
-          --with-ffi \
           --enable-zend-test \
           --enable-dl-test=shared \
           --enable-intl \
-          --with-mhash \
-          --with-sodium \
-          --enable-dba \
           --with-config-file-path=/etc \
           --with-config-file-scan-dir=/etc/php.d \
           ${{ inputs.configurationParameters }}
