@@ -583,7 +583,7 @@ PHP_FUNCTION(xmlwriter_start_document)
 	int retval;
 	zval *self;
 
-	if (zend_parse_method_parameters(ZEND_NUM_ARGS(), getThis(), "O|s!s!s!", &self, xmlwriter_class_entry_ce, &version, &version_len, &enc, &enc_len, &alone, &alone_len) == FAILURE) {
+	if (zend_parse_method_parameters(ZEND_NUM_ARGS(), getThis(), "O|s!p!s!", &self, xmlwriter_class_entry_ce, &version, &version_len, &enc, &enc_len, &alone, &alone_len) == FAILURE) {
 		RETURN_THROWS();
 	}
 	XMLWRITER_FROM_OBJECT(ptr, self);
