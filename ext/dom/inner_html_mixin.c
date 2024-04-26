@@ -273,6 +273,15 @@ static xmlNodePtr dom_xml_fragment_parsing_algorithm(dom_object *obj, const xmlN
 		return NULL;
 	}
 
+	/* This is not only good to avoid a performance cost of changing the tree, but also to work around an old bug
+	 * in xmlSetTreeDoc(). */
+	xmlDictFree(parser->dict);
+	if (context_node->doc->dict == NULL) {
+		context_node->doc->dict = xmlDictCreate();
+		xmlDictSetLimit(context_node->doc->dict, XML_MAX_DICTIONARY_LIMIT);
+	}
+	parser->dict = context_node->doc->dict;
+
 	php_libxml_sanitize_parse_ctxt_options(parser);
 	xmlCtxtUseOptions(parser, XML_PARSE_IGNORE_ENC | XML_PARSE_NOERROR | XML_PARSE_NOWARNING);
 
@@ -284,6 +293,7 @@ static xmlNodePtr dom_xml_fragment_parsing_algorithm(dom_object *obj, const xmlN
 
 	/* 5. If there is an XML well-formedness or XML namespace well-formedness error, then throw a "SyntaxError" DOMException. */
 	if (!parser->wellFormed || !parser->nsWellFormed) {
+		parser->dict = NULL;
 		xmlFreeDoc(parser->myDoc);
 		xmlFreeParserCtxt(parser);
 		php_dom_throw_error_with_message(SYNTAX_ERR, "XML fragment is not well-formed", true);
@@ -294,6 +304,8 @@ static xmlNodePtr dom_xml_fragment_parsing_algorithm(dom_object *obj, const xmlN
 	xmlFreeParserCtxt(parser);
 
 	if (EXPECTED(doc != NULL)) {
+		doc->dict = NULL;
+
 		/* 6. If the document element of the resulting Document has any sibling nodes, then throw a "SyntaxError" DOMException. */
 		xmlNodePtr document_element = doc->children;
 		if (document_element == NULL || document_element->next != NULL) {
