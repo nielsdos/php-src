@@ -45,6 +45,7 @@ runs:
           --enable-sysvshm \
           --enable-shmop \
           --enable-pcntl \
+          --enable-posix \
           --with-readline="$BREW_OPT"/readline \
           --enable-mbstring \
           --with-curl \
