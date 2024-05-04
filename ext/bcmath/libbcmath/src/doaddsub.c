@@ -193,7 +193,7 @@ bc_num _bc_do_add(bc_num n1, bc_num n2, size_t scale_min)
 	bc_num sum;
 	size_t sum_scale, sum_digits;
 	const char *n1ptr, *n2ptr;
-	char *sumptr;
+	char *restrict sumptr;
 	size_t n1bytes, n2bytes;
 	bool carry;
 
@@ -319,7 +319,8 @@ bc_num _bc_do_sub(bc_num n1, bc_num n2, size_t scale_min)
 	size_t min_scale, min_len;
 	size_t borrow, count;
 	int val;
-	char *n1ptr, *n2ptr, *diffptr;
+	const char *n1ptr, *n2ptr;
+	char *restrict diffptr;
 
 	/* Allocate temporary storage. */
 	diff_len = MAX(n1->n_len, n2->n_len);
@@ -330,16 +331,16 @@ bc_num _bc_do_sub(bc_num n1, bc_num n2, size_t scale_min)
 
 	/* Zero extra digits made by scale_min. */
 	if (scale_min > diff_scale) {
-		diffptr = (char *) (diff->n_value + diff_len + diff_scale);
+		diffptr = (char * restrict) (diff->n_value + diff_len + diff_scale);
 		for (count = scale_min - diff_scale; count > 0; count--) {
 			*diffptr++ = 0;
 		}
 	}
 
 	/* Initialize the subtract. */
-	n1ptr = (char *) (n1->n_value + n1->n_len + n1->n_scale - 1);
-	n2ptr = (char *) (n2->n_value + n2->n_len + n2->n_scale - 1);
-	diffptr = (char *) (diff->n_value + diff_len + diff_scale - 1);
+	n1ptr = n1->n_value + n1->n_len + n1->n_scale - 1;
+	n2ptr = n2->n_value + n2->n_len + n2->n_scale - 1;
+	diffptr = (char * restrict) (diff->n_value + diff_len + diff_scale - 1);
 
 	/* Subtract the numbers. */
 	borrow = 0;
@@ -365,7 +366,36 @@ bc_num _bc_do_sub(bc_num n1, bc_num n2, size_t scale_min)
 	}
 
 	/* Now do the equal length scale and integer parts. */
-	for (count = 0; count < min_len + min_scale; count++) {
+	count = 0;
+
+	if (IS_LITTLE_ENDIAN) {
+		/* This follows the same idea as the addition acceleration. */
+		while (count + 4 <= min_len + min_scale) {
+			n1ptr -= 4;
+			n2ptr -= 4;
+			diffptr -= 4;
+			count += 4;
+
+			uint32_t tmp1, tmp2;
+			memcpy(&tmp1, n1ptr + 1, sizeof(tmp1));
+			memcpy(&tmp2, n2ptr + 1, sizeof(tmp2));
+			/* temp{1,2} digits are in range [0, 9], so the difference is in range [-9, 9].
+			 * As this algorithm requires digits to be in range [0, 25] we can add 9 to each digit. */
+			const uint32_t nines = 9 << 24 | 9 << 16 | 9 << 8 | 9;
+			int32_t tmp_diff = bc_parse_4_chars(nines + tmp1 - tmp2) - 9999 - borrow;
+
+			if (tmp_diff < 0) {
+				tmp_diff += 10000;
+				borrow = 1;
+			} else {
+				borrow = 0;
+			}
+
+			bc_write_char_representation(tmp_diff, diffptr + 1);
+		}
+	}
+
+	for (; count < min_len + min_scale; count++) {
 		val = *n1ptr-- - *n2ptr-- - borrow;
 		if (val < 0) {
 			val += BASE;
