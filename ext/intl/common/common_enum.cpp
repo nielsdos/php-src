@@ -32,6 +32,18 @@ extern "C" {
 zend_class_entry *IntlIterator_ce_ptr;
 zend_object_handlers IntlIterator_handlers;
 
+static void zoi_with_current_destroy_self(zend_object_iterator *iter, zoi_with_current *zoiwc)
+{
+	/* Object not here anymore (we've been called by the object free handler)
+	 * Note that the iterator wrapper objects (that also depend on this
+	 * structure) call this function earlier, in the destruction phase, which
+	 * precedes the object free phase. Therefore there's no risk on this
+	 * function being called by the iterator wrapper destructor function and
+	 * not finding the memory of this iterator allocated anymore. */
+	iter->funcs->invalidate_current(iter);
+	zoiwc->destroy_it(iter);
+}
+
 void zoi_with_current_dtor(zend_object_iterator *iter)
 {
 	zoi_with_current *zoiwc = (zoi_with_current*)iter;
@@ -44,15 +56,14 @@ void zoi_with_current_dtor(zend_object_iterator *iter)
 		/* object is still here, we can rely on it to call this again and
 		 * destroy this object */
 		zval_ptr_dtor(zwo);
+
+		/* We may only invalidate and destroy if this was actually the last instance.
+		 * If it was, then IntlIterator_objects_free() will have set zwo to UNDEF. */
+		if (Z_ISUNDEF_P(zwo)) {
+			zoi_with_current_destroy_self(iter, zoiwc);
+		}
 	} else {
-		/* Object not here anymore (we've been called by the object free handler)
-		 * Note that the iterator wrapper objects (that also depend on this
-		 * structure) call this function earlier, in the destruction phase, which
-		 * precedes the object free phase. Therefore there's no risk on this
-		 * function being called by the iterator wrapper destructor function and
-		 * not finding the memory of this iterator allocated anymore. */
-		iter->funcs->invalidate_current(iter);
-		zoiwc->destroy_it(iter);
+		zoi_with_current_destroy_self(iter, zoiwc);
 	}
 }
 
@@ -126,6 +137,17 @@ static void string_enum_destroy_it(zend_object_iterator *iter)
 	delete (StringEnumeration*)Z_PTR(iter->data);
 }
 
+static HashTable *string_enum_get_gc(zend_object_iterator *object, zval **table, int *n)
+{
+	printf("get gc\n");
+	zoi_with_current *zoiwc = (zoi_with_current *) object;
+
+	*table = &zoiwc->wrapping_obj;
+	*n = 1;
+
+	return NULL;
+}
+
 static const zend_object_iterator_funcs string_enum_object_iterator_funcs = {
 	zoi_with_current_dtor,
 	zoi_with_current_valid,
@@ -134,7 +156,7 @@ static const zend_object_iterator_funcs string_enum_object_iterator_funcs = {
 	string_enum_current_move_forward,
 	string_enum_rewind,
 	zoi_with_current_invalidate_current,
-	NULL, /* get_gc */
+	string_enum_get_gc,
 };
 
 U_CFUNC void IntlIterator_from_StringEnumeration(StringEnumeration *se, zval *object)
@@ -148,7 +170,7 @@ U_CFUNC void IntlIterator_from_StringEnumeration(StringEnumeration *se, zval *ob
 	ii->iterator->funcs = &string_enum_object_iterator_funcs;
 	ii->iterator->index = 0;
 	((zoi_with_current*)ii->iterator)->destroy_it = string_enum_destroy_it;
-	ZVAL_OBJ(&((zoi_with_current*)ii->iterator)->wrapping_obj, Z_OBJ_P(object));
+	ZVAL_OBJ_COPY(&((zoi_with_current*)ii->iterator)->wrapping_obj, Z_OBJ_P(object));
 	ZVAL_UNDEF(&((zoi_with_current*)ii->iterator)->current);
 }
 
@@ -164,6 +186,26 @@ static void IntlIterator_objects_free(zend_object *object)
 	intl_error_reset(INTLITERATOR_ERROR_P(ii));
 
 	zend_object_std_dtor(&ii->zo);
+}
+
+static HashTable *IntlIterator_get_gc(zend_object *object, zval **table, int *n)
+{
+	printf("iterator get gc\n");
+	IntlIterator_object *ii = php_intl_iterator_fetch_object(object);
+
+	if (ii->iterator) {
+		zend_get_gc_buffer *gc = zend_get_gc_buffer_create();
+		zend_get_gc_buffer_add_obj(gc, &ii->iterator->std);
+		/* current can't participate in a cycle */
+		zend_get_gc_buffer_use(gc, table, n);
+
+		// TODO: can be optimized
+		return zend_std_get_properties(object);
+	} else {
+		*table = NULL;
+		*n = 0;
+		return zend_std_get_gc(object, table, n);
+	}
 }
 
 static zend_object_iterator *IntlIterator_get_iterator(
@@ -298,5 +340,5 @@ U_CFUNC void intl_register_IntlIterator_class(void)
 	IntlIterator_handlers.offset = XtOffsetOf(IntlIterator_object, zo);
 	IntlIterator_handlers.clone_obj = NULL;
 	IntlIterator_handlers.free_obj = IntlIterator_objects_free;
-
+	IntlIterator_handlers.get_gc = IntlIterator_get_gc;
 }
