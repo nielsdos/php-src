@@ -487,6 +487,23 @@ static HashTable* dom_get_debug_info(zend_object *object, int *is_temp) /* {{{ *
 }
 /* }}} */
 
+static HashTable *dom_get_properties_for(zend_object *obj, zend_prop_purpose purpose)
+{
+	switch (purpose) {
+		case ZEND_PROP_PURPOSE_ARRAY_CAST:
+			zend_throw_error(NULL, "%s cannot be cast to an array because the properties are virtual and do not have a raw value", ZSTR_VAL(obj->ce->name));
+			return NULL;
+		case ZEND_PROP_PURPOSE_JSON:
+			zend_throw_error(NULL, "%s cannot be encoded to JSON because the properties are virtual and do not have a raw value", ZSTR_VAL(obj->ce->name));
+			return NULL;
+		case ZEND_PROP_PURPOSE_VAR_EXPORT:
+			zend_throw_error(NULL, "%s cannot be exported because the representation would be insufficient to restore the object from", ZSTR_VAL(obj->ce->name));
+			return NULL;
+		default:
+			return zend_std_get_properties_for(obj, purpose);
+	}
+}
+
 void *php_dom_export_node(zval *object) /* {{{ */
 {
 	php_libxml_node_object *intern;
@@ -695,6 +712,7 @@ PHP_MINIT_FUNCTION(dom)
 	dom_object_handlers.clone_obj = dom_objects_store_clone_obj;
 	dom_object_handlers.has_property = dom_property_exists;
 	dom_object_handlers.get_debug_info = dom_get_debug_info;
+	dom_object_handlers.get_properties_for = dom_get_properties_for;
 
 	memcpy(&dom_modern_domimplementation_object_handlers, &dom_object_handlers, sizeof(zend_object_handlers));
 	/* The IDL has the [SameObject] constraint, which is incompatible with cloning because it imposes that there is only
