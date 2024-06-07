@@ -169,7 +169,6 @@ void _php_curl_verify_handlers(php_curl *ch, bool reporterror) /* {{{ */
 			zval_ptr_dtor(&ch->handlers.read->stream);
 			ZVAL_UNDEF(&ch->handlers.read->stream);
 			ch->handlers.read->res = NULL;
-			ch->handlers.read->fp = 0;
 
 			curl_easy_setopt(ch->cp, CURLOPT_INFILE, (void *) ch);
 		}
@@ -764,8 +763,8 @@ static size_t curl_read(char *data, size_t size, size_t nmemb, void *ctx)
 
 	switch (read_handler->method) {
 		case PHP_CURL_DIRECT:
-			if (read_handler->fp) {
-				length = fread(data, size, nmemb, read_handler->fp);
+			if (read_handler->res && read_handler->res->ptr) {
+				length = php_stream_read(read_handler->res->ptr, data, size * nmemb);
 			}
 			break;
 		case PHP_CURL_USER: {
@@ -1190,7 +1189,6 @@ void _php_setup_easy_copy_handlers(php_curl *ch, php_curl *source)
 
 	ch->handlers.write->fp = source->handlers.write->fp;
 	ch->handlers.write_header->fp = source->handlers.write_header->fp;
-	ch->handlers.read->fp = source->handlers.read->fp;
 	ch->handlers.read->res = source->handlers.read->res;
 
 	if (ZEND_FCC_INITIALIZED(source->handlers.read->fcc)) {
@@ -1965,11 +1963,9 @@ static zend_result _php_curl_setopt(php_curl *ch, zend_long option, zval *zvalue
 							zval_ptr_dtor(&ch->handlers.read->stream);
 							ZVAL_UNDEF(&ch->handlers.read->stream);
 						}
-						ch->handlers.read->fp = NULL;
 						ch->handlers.read->res = NULL;
 					} else {
 						zval_ptr_dtor(&ch->handlers.read->stream);
-						ch->handlers.read->fp = fp;
 						ch->handlers.read->res = Z_RES_P(zvalue);
 						ZVAL_COPY(&ch->handlers.read->stream, zvalue);
 					}
@@ -2789,7 +2785,6 @@ static void _php_curl_reset_handlers(php_curl *ch)
 		zval_ptr_dtor(&ch->handlers.read->stream);
 		ZVAL_UNDEF(&ch->handlers.read->stream);
 	}
-	ch->handlers.read->fp = NULL;
 	ch->handlers.read->res = NULL;
 	ch->handlers.read->method  = PHP_CURL_DIRECT;
 

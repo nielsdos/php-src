@@ -54,7 +54,6 @@ typedef struct {
 
 typedef struct {
 	zend_fcall_info_cache fcc;
-	FILE                 *fp;
 	zend_resource        *res;
 	int                   method;
 	zval                  stream;
