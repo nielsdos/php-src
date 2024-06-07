@@ -11,6 +11,7 @@ $ch = curl_init();
 
 curl_setopt($ch, CURLOPT_VERBOSE, 1);
 curl_setopt($ch, CURLOPT_STDERR, $fp);
+die;
 curl_setopt($ch, CURLOPT_URL, curl_cli_server_start());
 
 fclose($fp); // <-- premature close of $fp caused a crash!

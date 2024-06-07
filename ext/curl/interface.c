@@ -181,7 +181,7 @@ void _php_curl_verify_handlers(php_curl *ch, bool reporterror) /* {{{ */
 			}
 			zval_ptr_dtor(&ch->handlers.write_header->stream);
 			ZVAL_UNDEF(&ch->handlers.write_header->stream);
-			ch->handlers.write_header->fp = 0;
+			ch->handlers.write_header->res = NULL;
 
 			ch->handlers.write_header->method = PHP_CURL_IGNORE;
 			curl_easy_setopt(ch->cp, CURLOPT_WRITEHEADER, (void *) ch);
@@ -195,7 +195,7 @@ void _php_curl_verify_handlers(php_curl *ch, bool reporterror) /* {{{ */
 			}
 			zval_ptr_dtor(&ch->handlers.write->stream);
 			ZVAL_UNDEF(&ch->handlers.write->stream);
-			ch->handlers.write->fp = 0;
+			ch->handlers.write_header->res = NULL;
 
 			ch->handlers.write->method = PHP_CURL_STDOUT;
 			curl_easy_setopt(ch->cp, CURLOPT_FILE, (void *) ch);
@@ -572,7 +572,10 @@ static size_t curl_write(char *data, size_t size, size_t nmemb, void *ctx)
 			PHPWRITE(data, length);
 			break;
 		case PHP_CURL_FILE:
-			return fwrite(data, size, nmemb, write_handler->fp);
+			if (write_handler->res->ptr) {
+				return php_stream_write(write_handler->res->ptr, data, length);
+			}
+			break;
 		case PHP_CURL_RETURN:
 			if (length > 0) {
 				smart_str_appendl(&write_handler->buf, data, (int) length);
@@ -824,7 +827,10 @@ static size_t curl_write_header(char *data, size_t size, size_t nmemb, void *ctx
 			}
 			break;
 		case PHP_CURL_FILE:
-			return fwrite(data, size, nmemb, write_handler->fp);
+			if (write_handler->res->ptr) {
+				return php_stream_write(write_handler->res->ptr, data, length);
+			}
+			break;
 		case PHP_CURL_USER: {
 			zval argv[2];
 			zval retval;
@@ -1187,8 +1193,8 @@ void _php_setup_easy_copy_handlers(php_curl *ch, php_curl *source)
 	}
 	ch->handlers.write_header->stream = source->handlers.write_header->stream;
 
-	ch->handlers.write->fp = source->handlers.write->fp;
-	ch->handlers.write_header->fp = source->handlers.write_header->fp;
+	ch->handlers.write->res = source->handlers.write->res;
+	ch->handlers.write_header->res = source->handlers.write_header->res;
 	ch->handlers.read->res = source->handlers.read->res;
 
 	if (ZEND_FCC_INITIALIZED(source->handlers.read->fcc)) {
@@ -1901,20 +1907,11 @@ static zend_result _php_curl_setopt(php_curl *ch, zend_long option, zval *zvalue
 		case CURLOPT_INFILE:
 		case CURLOPT_STDERR:
 		case CURLOPT_WRITEHEADER: {
-			FILE *fp = NULL;
 			php_stream *what = NULL;
 
 			if (Z_TYPE_P(zvalue) != IS_NULL) {
 				what = (php_stream *)zend_fetch_resource2_ex(zvalue, "File-Handle", php_file_le_stream(), php_file_le_pstream());
 				if (!what) {
-					return FAILURE;
-				}
-
-				if (FAILURE == php_stream_cast(what, PHP_STREAM_AS_STDIO, (void *) &fp, REPORT_ERRORS)) {
-					return FAILURE;
-				}
-
-				if (!fp) {
 					return FAILURE;
 				}
 			}
@@ -1927,11 +1924,11 @@ static zend_result _php_curl_setopt(php_curl *ch, zend_long option, zval *zvalue
 							zval_ptr_dtor(&ch->handlers.write->stream);
 							ZVAL_UNDEF(&ch->handlers.write->stream);
 						}
-						ch->handlers.write->fp = NULL;
+						ch->handlers.write->res = NULL;
 						ch->handlers.write->method = PHP_CURL_STDOUT;
 					} else if (what->mode[0] != 'r' || what->mode[1] == '+') {
 						zval_ptr_dtor(&ch->handlers.write->stream);
-						ch->handlers.write->fp = fp;
+						ch->handlers.write->res = Z_RES_P(zvalue);
 						ch->handlers.write->method = PHP_CURL_FILE;
 						ZVAL_COPY(&ch->handlers.write->stream, zvalue);
 					} else {
@@ -1945,11 +1942,11 @@ static zend_result _php_curl_setopt(php_curl *ch, zend_long option, zval *zvalue
 							zval_ptr_dtor(&ch->handlers.write_header->stream);
 							ZVAL_UNDEF(&ch->handlers.write_header->stream);
 						}
-						ch->handlers.write_header->fp = NULL;
+						ch->handlers.write_header->res = NULL;
 						ch->handlers.write_header->method = PHP_CURL_IGNORE;
 					} else if (what->mode[0] != 'r' || what->mode[1] == '+') {
 						zval_ptr_dtor(&ch->handlers.write_header->stream);
-						ch->handlers.write_header->fp = fp;
+						ch->handlers.write_header->res = Z_RES_P(zvalue);
 						ch->handlers.write_header->method = PHP_CURL_FILE;
 						ZVAL_COPY(&ch->handlers.write_header->stream, zvalue);
 					} else {
@@ -1985,7 +1982,8 @@ static zend_result _php_curl_setopt(php_curl *ch, zend_long option, zval *zvalue
 					}
 					ZEND_FALLTHROUGH;
 				default:
-					error = curl_easy_setopt(ch->cp, option, fp);
+					fprintf(stderr, "hallo %ld\n", option);
+					abort();
 					break;
 			}
 			break;
@@ -2332,11 +2330,11 @@ PHP_FUNCTION(curl_exec)
 	}
 
 	/* flush the file handle, so any remaining data is synched to disk */
-	if (ch->handlers.write->method == PHP_CURL_FILE && ch->handlers.write->fp) {
-		fflush(ch->handlers.write->fp);
+	if (ch->handlers.write->method == PHP_CURL_FILE && ch->handlers.write->res && ch->handlers.write->res->ptr) {
+		php_stream_flush(ch->handlers.write->res->ptr);
 	}
-	if (ch->handlers.write_header->method == PHP_CURL_FILE && ch->handlers.write_header->fp) {
-		fflush(ch->handlers.write_header->fp);
+	if (ch->handlers.write_header->method == PHP_CURL_FILE && ch->handlers.write_header->res && ch->handlers.write_header->res->ptr) {
+		php_stream_flush(ch->handlers.write_header->res->ptr);
 	}
 
 	if (ch->handlers.write->method == PHP_CURL_RETURN) {
@@ -2771,14 +2769,14 @@ static void _php_curl_reset_handlers(php_curl *ch)
 		zval_ptr_dtor(&ch->handlers.write->stream);
 		ZVAL_UNDEF(&ch->handlers.write->stream);
 	}
-	ch->handlers.write->fp = NULL;
+	ch->handlers.write->res = NULL;
 	ch->handlers.write->method = PHP_CURL_STDOUT;
 
 	if (!Z_ISUNDEF(ch->handlers.write_header->stream)) {
 		zval_ptr_dtor(&ch->handlers.write_header->stream);
 		ZVAL_UNDEF(&ch->handlers.write_header->stream);
 	}
-	ch->handlers.write_header->fp = NULL;
+	ch->handlers.write_header->res = NULL;
 	ch->handlers.write_header->method = PHP_CURL_IGNORE;
 
 	if (!Z_ISUNDEF(ch->handlers.read->stream)) {

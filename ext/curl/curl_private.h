@@ -46,7 +46,7 @@ PHP_MINFO_FUNCTION(curl);
 
 typedef struct {
 	zend_fcall_info_cache fcc;
-	FILE                 *fp;
+	zend_resource        *res;
 	smart_str             buf;
 	int                   method;
 	zval					stream;
