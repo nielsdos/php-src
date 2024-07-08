@@ -1707,7 +1707,7 @@ void zend_dfa_optimize_op_array(zend_op_array *op_array, zend_optimizer_ctx *ctx
 
 			zend_ssa_op *ssa_op = &ssa->ops[i];
 
-			uint32_t value_type_mask = ssa->var_info[(ssa_op + 1)->op1_use].type;
+			uint32_t value_type_mask = ssa->var_info[ssa->ops[i + 1].op1_use].type;
 			value_type_mask &= MAY_BE_ANY | MAY_BE_REF;
 			const zend_property_info *prop_info = zend_fetch_prop_info(op_array, ssa, opline, ssa_op);
 			if (prop_info
