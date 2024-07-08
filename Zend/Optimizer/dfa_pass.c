@@ -1700,6 +1700,29 @@ void zend_dfa_optimize_op_array(zend_op_array *op_array, zend_optimizer_ctx *ctx
 		}
 	}
 
+	for (uint32_t i = 0; i < op_array->last; i++) {
+		zend_op *opline = &op_array->opcodes[i];
+		if (opline->opcode == ZEND_ASSIGN_OBJ && opline->op2_type == IS_CONST) {
+			const zend_property_info *zend_fetch_prop_info(const zend_op_array *op_array, zend_ssa *ssa, const zend_op *opline, const zend_ssa_op *ssa_op);
+
+			zend_ssa_op *ssa_op = &ssa->ops[i];
+
+			uint32_t value_type_mask = ssa->var_info[(ssa_op + 1)->op1_use].type;
+			value_type_mask &= MAY_BE_ANY | MAY_BE_REF;
+			const zend_property_info *prop_info = zend_fetch_prop_info(op_array, ssa, opline, ssa_op);
+			if (prop_info
+			 && ZEND_TYPE_IS_ONLY_MASK(prop_info->type)
+			 && IS_VALID_PROPERTY_OFFSET(prop_info->offset)
+			 && !(prop_info->flags & ZEND_ACC_READONLY)
+			 && ZEND_TYPE_PURE_MASK(prop_info->type) == value_type_mask
+			 && ((value_type_mask - 1) & value_type_mask) == 0) {
+				// TODO: __set & friends
+				opline->extended_value |= 1;
+				//fprintf(stderr, "marking value\n");
+			}
+		}
+	}
+
 	if (ctx->debug_level & ZEND_DUMP_AFTER_DFA_PASS) {
 		zend_dump_op_array(op_array, ZEND_DUMP_SSA, "after dfa pass", ssa);
 	}

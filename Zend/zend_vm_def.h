@@ -2515,6 +2515,67 @@ ZEND_VM_C_LABEL(exit_assign_obj):
 	ZEND_VM_NEXT_OPCODE_EX(1, 2);
 }
 
+ZEND_VM_TYPE_SPEC_HANDLER(ZEND_ASSIGN_OBJ, (op->extended_value & 1) != 0, ZEND_ASSIGN_OBJ_CORRECTLY_TYPED, UNUSED|VAR|THIS|CV, CONST, CACHE_SLOT, SPEC(OP_DATA=CONST|TMP|VAR|CV))
+{
+	USE_OPLINE
+	zval *object, *value;
+	zend_object *zobj;
+	zend_string *name;
+	zend_refcounted *garbage = NULL;
+
+	SAVE_OPLINE();
+	object = GET_OP1_OBJ_ZVAL_PTR_PTR_UNDEF(BP_VAR_W);
+	value = GET_OP_DATA_ZVAL_PTR(BP_VAR_R);
+
+	// TODO: get rid of this?
+	if (OP1_TYPE != IS_UNUSED && UNEXPECTED(Z_TYPE_P(object) != IS_OBJECT)) {
+		if (Z_ISREF_P(object) && Z_TYPE_P(Z_REFVAL_P(object)) == IS_OBJECT) {
+			object = Z_REFVAL_P(object);
+			ZEND_VM_C_GOTO(assign_object);
+		}
+		zend_throw_non_object_error(object, GET_OP2_ZVAL_PTR(BP_VAR_R) OPLINE_CC EXECUTE_DATA_CC);
+		value = &EG(uninitialized_zval);
+		ZEND_VM_C_GOTO(free_and_exit_assign_obj);
+	}
+
+ZEND_VM_C_LABEL(assign_object):
+	zobj = Z_OBJ_P(object);
+	if (EXPECTED(zobj->ce == CACHED_PTR(opline->extended_value & ~1))) {
+		void **cache_slot = CACHE_ADDR(opline->extended_value & ~1);
+		uintptr_t prop_offset = (uintptr_t)CACHED_PTR_EX(cache_slot + 1);
+		zval *property_val = OBJ_PROP(zobj, prop_offset);
+
+		ZEND_ASSERT(IS_VALID_PROPERTY_OFFSET(prop_offset));
+
+		if (Z_TYPE_P(property_val) != IS_UNDEF) {
+			value = zend_assign_to_variable_ex(property_val, value, OP_DATA_TYPE, EX_USES_STRICT_TYPES(), &garbage);
+			if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
+				ZVAL_COPY(EX_VAR(opline->result.var), value);
+			}
+			ZEND_VM_C_GOTO(exit_assign_obj);
+		}
+	}
+	name = Z_STR_P(GET_OP2_ZVAL_PTR(BP_VAR_R));
+
+	ZEND_ASSERT(!Z_ISREF_P(value));
+
+	value = zobj->handlers->write_property(zobj, name, value, (OP2_TYPE == IS_CONST) ? CACHE_ADDR(opline->extended_value & ~1) : NULL);
+
+ZEND_VM_C_LABEL(free_and_exit_assign_obj):
+	if (UNEXPECTED(RETURN_VALUE_USED(opline)) && value) {
+		ZVAL_COPY_DEREF(EX_VAR(opline->result.var), value);
+	}
+	FREE_OP_DATA();
+ZEND_VM_C_LABEL(exit_assign_obj):
+	if (garbage) {
+		GC_DTOR_NO_REF(garbage);
+	}
+	FREE_OP2();
+	FREE_OP1();
+	/* assign_obj has two opcodes! */
+	ZEND_VM_NEXT_OPCODE_EX(1, 2);
+}
+
 /* No specialization for op_types (CONST|TMPVAR|CV, UNUSED|CONST|VAR) */
 ZEND_VM_HANDLER(25, ZEND_ASSIGN_STATIC_PROP, ANY, ANY, CACHE_SLOT, SPEC(OP_DATA=CONST|TMP|VAR|CV))
 {
