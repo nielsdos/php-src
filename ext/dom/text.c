@@ -43,6 +43,11 @@ PHP_METHOD(DOMText, __construct)
 		RETURN_THROWS();
 	}
 
+	if (value_len > INT_MAX) {
+		zend_argument_value_error(1, "must be less than or equal to %d bytes long", INT_MAX);
+		RETURN_THROWS();
+	}
+
 	nodep = xmlNewText(BAD_CAST value);
 
 	if (!nodep) {

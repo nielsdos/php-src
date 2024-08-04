@@ -304,6 +304,10 @@ static lexbor_libxml2_bridge_status lexbor_libxml2_bridge_convert(
             /* libxml2 doesn't support line numbers on this anyway, it returns -1 instead, so don't bother */
         } else if (node->type == LXB_DOM_NODE_TYPE_COMMENT) {
             lxb_dom_comment_t *comment = lxb_dom_interface_comment(node);
+            if (UNEXPECTED(comment->char_data.data.length >= INT_MAX)) {
+                retval = LEXBOR_LIBXML2_BRIDGE_STATUS_OVERFLOW;
+                break;
+            }
             xmlNodePtr lxml_comment = xmlNewDocComment(lxml_doc, comment->char_data.data.data);
             if (UNEXPECTED(lxml_comment == NULL)) {
                 retval = LEXBOR_LIBXML2_BRIDGE_STATUS_OOM;

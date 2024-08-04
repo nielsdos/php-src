@@ -36,9 +36,14 @@ PHP_METHOD(DOMComment, __construct)
 	xmlNodePtr nodep = NULL, oldnode = NULL;
 	dom_object *intern;
 	char *value = NULL;
-	size_t value_len;
+	size_t value_len = 0;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS(), "|s", &value, &value_len) == FAILURE) {
+		RETURN_THROWS();
+	}
+
+	if (value_len > INT_MAX) {
+		zend_argument_value_error(1, "must be less than or equal to %d bytes long", INT_MAX);
 		RETURN_THROWS();
 	}
 

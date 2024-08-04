@@ -42,6 +42,11 @@ PHP_METHOD(DOMCdataSection, __construct)
 		RETURN_THROWS();
 	}
 
+	if (value_len > INT_MAX) {
+		zend_argument_value_error(1, "must be less than or equal to %d bytes long", INT_MAX);
+		RETURN_THROWS();
+	}
+
 	nodep = xmlNewCDataBlock(NULL, BAD_CAST value, value_len);
 
 	if (!nodep) {

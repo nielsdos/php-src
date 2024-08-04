@@ -528,9 +528,14 @@ PHP_METHOD(DOMDocument, createTextNode)
 		Z_PARAM_STRING(value, value_len)
 	ZEND_PARSE_PARAMETERS_END();
 
+	if (value_len > INT_MAX) {
+		zend_argument_value_error(1, "must be less than or equal to %d bytes long", INT_MAX);
+		RETURN_THROWS();
+	}
+
 	DOM_GET_OBJ(docp, ZEND_THIS, xmlDocPtr, intern);
 
-	node = xmlNewDocText(docp, BAD_CAST value);
+	node = xmlNewDocTextLen(docp, BAD_CAST value, value_len);
 	if (!node) {
 		php_dom_throw_error(INVALID_STATE_ERR, /* strict */ true);
 		RETURN_THROWS();
@@ -554,6 +559,11 @@ PHP_METHOD(DOMDocument, createComment)
 
 	id = ZEND_THIS;
 	if (zend_parse_parameters(ZEND_NUM_ARGS(), "s", &value, &value_len) == FAILURE) {
+		RETURN_THROWS();
+	}
+
+	if (value_len > INT_MAX) {
+		zend_argument_value_error(1, "must be less than or equal to %d bytes long", INT_MAX);
 		RETURN_THROWS();
 	}
 
@@ -584,6 +594,11 @@ PHP_METHOD(DOMDocument, createCDATASection)
 
 	id = ZEND_THIS;
 	if (zend_parse_parameters(ZEND_NUM_ARGS(), "s", &value, &value_len) == FAILURE) {
+		RETURN_THROWS();
+	}
+
+	if (value_len > INT_MAX) {
+		zend_argument_value_error(1, "must be less than or equal to %d bytes long", INT_MAX);
 		RETURN_THROWS();
 	}
 
@@ -619,11 +634,21 @@ static void dom_document_create_processing_instruction(INTERNAL_FUNCTION_PARAMET
 {
 	xmlNode *node;
 	xmlDocPtr docp;
-	size_t value_len, name_len = 0;
+	size_t value_len = 0, name_len = 0;
 	dom_object *intern;
 	char *name, *value = NULL;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS(), modern ? "ss" : "s|s", &name, &name_len, &value, &value_len) != SUCCESS) {
+		RETURN_THROWS();
+	}
+
+	if (name_len > INT_MAX) {
+		zend_argument_value_error(1, "must be less than or equal to %d bytes long", INT_MAX);
+		RETURN_THROWS();
+	}
+
+	if (value_len > INT_MAX) {
+		zend_argument_value_error(2, "must be less than or equal to %d bytes long", INT_MAX);
 		RETURN_THROWS();
 	}
 

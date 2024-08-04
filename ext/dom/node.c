@@ -707,8 +707,6 @@ zend_result dom_node_text_content_write(dom_object *obj, zval *newval)
 {
 	DOM_PROP_NODE(xmlNodePtr, nodep, obj);
 
-	php_libxml_invalidate_node_list_cache(obj->document);
-
 	/* Typed property, this is already a string */
 	ZEND_ASSERT(Z_TYPE_P(newval) == IS_STRING || Z_TYPE_P(newval) == IS_NULL);
 	const xmlChar *xmlChars;
@@ -720,6 +718,13 @@ zend_result dom_node_text_content_write(dom_object *obj, zval *newval)
 		xmlChars = (const xmlChar *) Z_STRVAL_P(newval);
 		len = Z_STRLEN_P(newval);
 	}
+
+	if (len > INT_MAX) {
+		zend_value_error("Value must be less than or equal to %d bytes long", INT_MAX);
+		return FAILURE;
+	}
+
+	php_libxml_invalidate_node_list_cache(obj->document);
 
 	int type = nodep->type;
 
@@ -734,7 +739,7 @@ zend_result dom_node_text_content_write(dom_object *obj, zval *newval)
 		xmlNode *textNode = xmlNewDocTextLen(nodep->doc, xmlChars, len);
 		xmlAddChild(nodep, textNode);
 	} else {
-		xmlNodeSetContent(nodep, xmlChars);
+		xmlNodeSetContentLen(nodep, xmlChars, len);
 	}
 
 	return SUCCESS;

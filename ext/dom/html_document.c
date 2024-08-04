@@ -1552,7 +1552,7 @@ zend_result dom_html_document_title_read(dom_object *obj, zval *retval)
 static void dom_string_replace_all(xmlDocPtr docp, xmlNodePtr element, zval *zv)
 {
 	dom_remove_all_children(element);
-	xmlNode *text = xmlNewDocText(docp, BAD_CAST Z_STRVAL_P(zv));
+	xmlNode *text = xmlNewDocTextLen(docp, BAD_CAST Z_STRVAL_P(zv), Z_STRLEN_P(zv));
 	xmlAddChild(element, text);
 }
 
@@ -1564,6 +1564,11 @@ zend_result dom_html_document_title_write(dom_object *obj, zval *newval)
 
 	if (root == NULL) {
 		return SUCCESS;
+	}
+
+	if (Z_STRLEN_P(newval) > INT_MAX) {
+		zend_value_error("Value must be less than or equal to %d bytes long", INT_MAX);
+		return FAILURE;
 	}
 
 	/* If the document element is an SVG svg element */

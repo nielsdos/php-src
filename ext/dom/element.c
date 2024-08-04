@@ -415,9 +415,19 @@ PHP_METHOD(DOMElement, setAttribute)
 		RETURN_THROWS();
 	}
 
+	if (name_len > INT_MAX) {
+		zend_argument_value_error(1, "must be less than or equal to %d bytes long", INT_MAX);
+		RETURN_THROWS();
+	}
+
 	name_valid = xmlValidateName(BAD_CAST name, 0);
 	if (name_valid != 0) {
 		php_dom_throw_error(INVALID_CHARACTER_ERR, true);
+		RETURN_THROWS();
+	}
+
+	if (value_len > INT_MAX) {
+		zend_argument_value_error(2, "must be less than or equal to %d bytes long", INT_MAX);
 		RETURN_THROWS();
 	}
 
@@ -437,7 +447,7 @@ PHP_METHOD(DOMElement, setAttribute)
 		if (attr != NULL) {
 			dom_attr_value_will_change(intern, attr);
 			dom_remove_all_children((xmlNodePtr) attr);
-			xmlNodePtr node = xmlNewDocText(attr->doc, BAD_CAST value);
+			xmlNodePtr node = xmlNewDocTextLen(attr->doc, BAD_CAST value, value_len);
 			xmlAddChild((xmlNodePtr) attr, node);
 		} else {
 			attr = xmlSetNsProp(nodep, NULL, name_processed, BAD_CAST value);

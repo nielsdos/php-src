@@ -37,16 +37,31 @@ PHP_METHOD(DOMProcessingInstruction, __construct)
 	xmlNodePtr nodep = NULL, oldnode = NULL;
 	dom_object *intern;
 	char *name, *value = NULL;
-	size_t name_len, value_len;
+	size_t name_len, value_len = 0;
 	int name_valid;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS(), "s|s", &name, &name_len, &value, &value_len) == FAILURE) {
 		RETURN_THROWS();
 	}
 
+	if (name_len > INT_MAX) {
+		zend_argument_value_error(1, "must be less than or equal to %d bytes long", INT_MAX);
+		RETURN_THROWS();
+	}
+
+	if (value_len > INT_MAX) {
+		zend_argument_value_error(2, "must be less than or equal to %d bytes long", INT_MAX);
+		RETURN_THROWS();
+	}
+
 	name_valid = xmlValidateName(BAD_CAST name, 0);
 	if (name_valid != 0) {
 		php_dom_throw_error(INVALID_CHARACTER_ERR, true);
+		RETURN_THROWS();
+	}
+
+	if (value_len > INT_MAX) {
+		zend_argument_value_error(1, "must be less than or equal to %d bytes long", INT_MAX);
 		RETURN_THROWS();
 	}
 
