@@ -14,6 +14,7 @@
 #define LXB_HTML_TAG_RES_DATA
 #define LXB_HTML_TAG_RES_SHS_DATA
 #include "lexbor/html/tag_res.h"
+#include "swar.h"
 
 
 #define LXB_HTML_TKZ_TEMP_SIZE (4096 * 4)
@@ -304,6 +305,24 @@ lxb_html_tokenizer_begin(lxb_html_tokenizer_t *tkz)
     return LXB_STATUS_OK;
 }
 
+static inline size_t count_utf8_codepoints(size_t bytes)
+{
+    /* Top 2 bits must not be 10 to increase the count, or if starting from a full count: must be 10 to decrease the count.
+     * We can see that the first bit must not be 1 and second must be 0, i.e. not "first & ~second".
+     * We also have to shift to align the bits on top of each other. */
+    size_t firsts = bytes & SWAR_REPEAT(0b10000000);
+    size_t seconds = bytes & SWAR_REPEAT(0b01000000);
+    size_t matches = firsts & ~(seconds << 1);
+
+    size_t cnt = sizeof(size_t);
+    while (matches) {
+        matches &= matches - 1;
+        cnt--;
+    }
+
+    return cnt;
+}
+
 lxb_status_t
 lxb_html_tokenizer_chunk(lxb_html_tokenizer_t *tkz, const lxb_char_t *data,
                          size_t size)
@@ -315,8 +334,26 @@ lxb_html_tokenizer_chunk(lxb_html_tokenizer_t *tkz, const lxb_char_t *data,
     tkz->last = end;
 
     while (data < end) {
-        size_t current_column = tkz->current_column;
         const lxb_char_t *new_data = tkz->state(tkz, data, end);
+		size_t current_column = tkz->current_column;
+
+		if (SWAR_IS_LITTLE_ENDIAN) {
+			while (data + sizeof(size_t) <= new_data) {
+				size_t bytes;
+				memcpy(&bytes, data, sizeof(size_t));
+
+				size_t matches = SWAR_HAS_ZERO(bytes ^ SWAR_REPEAT(0x0A));
+				if (matches) {
+					data += (((matches - 1) & SWAR_ONES) * SWAR_ONES) >> (sizeof(size_t) * 8 - 8);
+					tkz->current_line++;
+					current_column = 0;
+				} else {
+					data += sizeof(size_t);
+					current_column += count_utf8_codepoints(bytes);
+				}
+			}
+		}
+
         while (data < new_data) {
             /* Codepoints < 0x80 are encoded the same as their ASCII counterpart, so '\n' will uniquely identify a newline. */
             if (*data == '\n') {
