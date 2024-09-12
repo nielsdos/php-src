@@ -3257,6 +3257,10 @@ function toolset_setup_common_cflags()
 			ADD_FLAG('CFLAGS', ' /wd4996 ');
 		}
 
+		if (PHP_SANITIZER == "yes") {
+			ADD_FLAG('CFLAGS', ' /fsanitize=address /wd5072 ');
+		}
+
 		if (PHP_DEBUG == "yes") {
 			// Set some debug/release specific options
 			ADD_FLAG('CFLAGS', ' /RTC1 ');
