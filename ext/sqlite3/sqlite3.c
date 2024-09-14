@@ -2397,6 +2397,8 @@ PHP_MINIT_FUNCTION(sqlite3)
 		php_error_docref(NULL, E_WARNING, "A thread safe version of SQLite is required when using a thread safe version of PHP.");
 		return FAILURE;
 	}
+#else
+	sqlite3_config(SQLITE_CONFIG_SINGLETHREAD, 1);
 #endif
 
 	memcpy(&sqlite3_object_handlers, &std_object_handlers, sizeof(zend_object_handlers));
