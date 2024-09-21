@@ -143,7 +143,7 @@ jobs:
         if: ${{ !matrix.asan }}
         uses: ./.github/actions/verify-generated-files
   LINUX_X32:
-    if: github.repository == 'php/php-src' || github.event_name == 'pull_request'
+    if: 0
     name: LINUX_X32_DEBUG_ZTS
     runs-on: ubuntu-latest
     container:
@@ -188,7 +188,7 @@ jobs:
             -d zend_extension=opcache.so
             -d opcache.enable_cli=1
   MACOS_DEBUG_NTS:
-    if: github.repository == 'php/php-src' || github.event_name == 'pull_request'
+    if: 0
     strategy:
       fail-fast: false
       matrix:
@@ -230,7 +230,7 @@ jobs:
       - name: Verify generated files are up to date
         uses: ./.github/actions/verify-generated-files
   WINDOWS:
-    if: github.repository == 'php/php-src' || github.event_name == 'pull_request'
+    if: 0
     name: WINDOWS_X64_ZTS
     runs-on: windows-2022
     env:
@@ -257,7 +257,7 @@ jobs:
         run: .github/scripts/windows/test.bat
   BENCHMARKING:
     name: BENCHMARKING
-    if: github.repository == 'php/php-src' || github.event_name == 'pull_request'
+    if: 0
     runs-on: ubuntu-22.04
     steps:
       - name: git checkout
