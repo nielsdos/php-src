@@ -4,8 +4,7 @@ runs:
   steps:
     - shell: bash
       run: |
-        sudo service mysql start
-        journalctl -xeu mysql.service
+        sudo service mysql start || sudo journalctl -xeu mysql.service
         sudo service slapd start
         mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS test"
         # Ensure local_infile tests can run.

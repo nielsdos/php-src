@@ -104,27 +104,6 @@ jobs:
         uses: ./.github/actions/setup-mssql
       - name: Setup Caddy server
         uses: ./.github/actions/setup-caddy
-      - name: ccache
-        uses: hendrikmuhs/ccache-action@v1.2
-        with:
-          # This duplicates the "job.name" expression above because
-          # GitHub has no way to query the job name (github.job is the
-          # job id, not the job name)
-          key: "LINUX_X64_${{ matrix.debug && 'DEBUG' || 'RELEASE' }}_${{ matrix.zts && 'ZTS' || 'NTS' }}${{ matrix.asan && '_ASAN' || '' }}-${{hashFiles('main/php_version.h')}}"
-          append-timestamp: false
-          save: ${{ github.event_name != 'pull_request' }}
-      - name: ./configure
-        uses: ./.github/actions/configure-x64
-        with:
-          configurationParameters: >-
-            --${{ matrix.debug && 'enable' || 'disable' }}-debug
-            --${{ matrix.zts && 'enable' || 'disable' }}-zts
-            ${{ matrix.asan && 'CFLAGS="-fsanitize=undefined,address -DZEND_TRACK_ARENA_ALLOC" LDFLAGS="-fsanitize=undefined,address" CC=clang-16 CXX=clang++-16' || '' }}
-          skipSlow: ${{ matrix.asan }}
-      - name: make
-        run: make -j$(/usr/bin/nproc) >/dev/null
-      - name: make install
-        uses: ./.github/actions/install-linux
       - name: Setup
         if: ${{ !matrix.asan }}
         uses: ./.github/actions/setup-x64
