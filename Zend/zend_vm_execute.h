@@ -23581,12 +23581,23 @@ static ZEND_OPCODE_HANDLER_RET ZEND_FASTCALL ZEND_ASSIGN_DIM_OP_SPEC_VAR_CONST_H
 	zval *var_ptr;
 	zval *value, *container, *dim;
 	HashTable *ht;
+	zend_array *value_array;
 
 	SAVE_OPLINE();
 	container = _get_zval_ptr_ptr_var(opline->op1.var EXECUTE_DATA_CC);
 
 	if (EXPECTED(Z_TYPE_P(container) == IS_ARRAY)) {
 assign_dim_op_array:
+		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
+		if (UNEXPECTED(Z_ISREF_P(value) && Z_TYPE_P(Z_REFVAL_P(value)) == IS_ARRAY && Z_ARRVAL_P(Z_REFVAL_P(value)) == Z_ARRVAL_P(container) && !(GC_FLAGS(Z_ARRVAL_P(container)) & GC_IMMUTABLE))) {
+			/* The binary OP would normally deref the reference, so an increase in RC would only be done later.
+			 * We need to do this here already to do a correct array separation in case the value is related to the array.
+			 * The only case where this would be problematic is when the container and value are the same array. */
+			value_array = Z_ARR_P(Z_REFVAL_P(value));
+			GC_ADDREF(value_array);
+		} else {
+			value_array = NULL;
+		}
 		SEPARATE_ARRAY(container);
 		ht = Z_ARRVAL_P(container);
 assign_dim_op_new_array:
@@ -23608,8 +23619,6 @@ assign_dim_op_new_array:
 			}
 		}
 
-		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
-
 		do {
 			if (IS_CONST != IS_UNUSED && UNEXPECTED(Z_ISREF_P(var_ptr))) {
 				zend_reference *ref = Z_REF_P(var_ptr);
@@ -23620,6 +23629,9 @@ assign_dim_op_new_array:
 				}
 			}
 			zend_binary_op(var_ptr, var_ptr, value OPLINE_CC);
+			if (UNEXPECTED(value_array)) {
+				GC_DTOR_NO_REF(value_array);
+			}
 		} while (0);
 
 		if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
@@ -23659,6 +23671,8 @@ assign_dim_op_new_array:
 					goto assign_dim_op_ret_null;
 				}
 			}
+			value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
+			value_array = NULL;
 			goto assign_dim_op_new_array;
 		} else {
 			dim = RT_CONSTANT(opline, opline->op2);
@@ -26567,12 +26581,23 @@ static ZEND_OPCODE_HANDLER_RET ZEND_FASTCALL ZEND_ASSIGN_DIM_OP_SPEC_VAR_TMPVAR_
 	zval *var_ptr;
 	zval *value, *container, *dim;
 	HashTable *ht;
+	zend_array *value_array;
 
 	SAVE_OPLINE();
 	container = _get_zval_ptr_ptr_var(opline->op1.var EXECUTE_DATA_CC);
 
 	if (EXPECTED(Z_TYPE_P(container) == IS_ARRAY)) {
 assign_dim_op_array:
+		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
+		if (UNEXPECTED(Z_ISREF_P(value) && Z_TYPE_P(Z_REFVAL_P(value)) == IS_ARRAY && Z_ARRVAL_P(Z_REFVAL_P(value)) == Z_ARRVAL_P(container) && !(GC_FLAGS(Z_ARRVAL_P(container)) & GC_IMMUTABLE))) {
+			/* The binary OP would normally deref the reference, so an increase in RC would only be done later.
+			 * We need to do this here already to do a correct array separation in case the value is related to the array.
+			 * The only case where this would be problematic is when the container and value are the same array. */
+			value_array = Z_ARR_P(Z_REFVAL_P(value));
+			GC_ADDREF(value_array);
+		} else {
+			value_array = NULL;
+		}
 		SEPARATE_ARRAY(container);
 		ht = Z_ARRVAL_P(container);
 assign_dim_op_new_array:
@@ -26594,8 +26619,6 @@ assign_dim_op_new_array:
 			}
 		}
 
-		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
-
 		do {
 			if ((IS_TMP_VAR|IS_VAR) != IS_UNUSED && UNEXPECTED(Z_ISREF_P(var_ptr))) {
 				zend_reference *ref = Z_REF_P(var_ptr);
@@ -26606,6 +26629,9 @@ assign_dim_op_new_array:
 				}
 			}
 			zend_binary_op(var_ptr, var_ptr, value OPLINE_CC);
+			if (UNEXPECTED(value_array)) {
+				GC_DTOR_NO_REF(value_array);
+			}
 		} while (0);
 
 		if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
@@ -26645,6 +26671,8 @@ assign_dim_op_new_array:
 					goto assign_dim_op_ret_null;
 				}
 			}
+			value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
+			value_array = NULL;
 			goto assign_dim_op_new_array;
 		} else {
 			dim = _get_zval_ptr_var(opline->op2.var EXECUTE_DATA_CC);
@@ -29037,12 +29065,23 @@ static ZEND_OPCODE_HANDLER_RET ZEND_FASTCALL ZEND_ASSIGN_DIM_OP_SPEC_VAR_UNUSED_
 	zval *var_ptr;
 	zval *value, *container, *dim;
 	HashTable *ht;
+	zend_array *value_array;
 
 	SAVE_OPLINE();
 	container = _get_zval_ptr_ptr_var(opline->op1.var EXECUTE_DATA_CC);
 
 	if (EXPECTED(Z_TYPE_P(container) == IS_ARRAY)) {
 assign_dim_op_array:
+		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
+		if (UNEXPECTED(Z_ISREF_P(value) && Z_TYPE_P(Z_REFVAL_P(value)) == IS_ARRAY && Z_ARRVAL_P(Z_REFVAL_P(value)) == Z_ARRVAL_P(container) && !(GC_FLAGS(Z_ARRVAL_P(container)) & GC_IMMUTABLE))) {
+			/* The binary OP would normally deref the reference, so an increase in RC would only be done later.
+			 * We need to do this here already to do a correct array separation in case the value is related to the array.
+			 * The only case where this would be problematic is when the container and value are the same array. */
+			value_array = Z_ARR_P(Z_REFVAL_P(value));
+			GC_ADDREF(value_array);
+		} else {
+			value_array = NULL;
+		}
 		SEPARATE_ARRAY(container);
 		ht = Z_ARRVAL_P(container);
 assign_dim_op_new_array:
@@ -29064,8 +29103,6 @@ assign_dim_op_new_array:
 			}
 		}
 
-		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
-
 		do {
 			if (IS_UNUSED != IS_UNUSED && UNEXPECTED(Z_ISREF_P(var_ptr))) {
 				zend_reference *ref = Z_REF_P(var_ptr);
@@ -29076,6 +29113,9 @@ assign_dim_op_new_array:
 				}
 			}
 			zend_binary_op(var_ptr, var_ptr, value OPLINE_CC);
+			if (UNEXPECTED(value_array)) {
+				GC_DTOR_NO_REF(value_array);
+			}
 		} while (0);
 
 		if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
@@ -29115,6 +29155,8 @@ assign_dim_op_new_array:
 					goto assign_dim_op_ret_null;
 				}
 			}
+			value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
+			value_array = NULL;
 			goto assign_dim_op_new_array;
 		} else {
 			dim = NULL;
@@ -30925,12 +30967,23 @@ static ZEND_OPCODE_HANDLER_RET ZEND_FASTCALL ZEND_ASSIGN_DIM_OP_SPEC_VAR_CV_HAND
 	zval *var_ptr;
 	zval *value, *container, *dim;
 	HashTable *ht;
+	zend_array *value_array;
 
 	SAVE_OPLINE();
 	container = _get_zval_ptr_ptr_var(opline->op1.var EXECUTE_DATA_CC);
 
 	if (EXPECTED(Z_TYPE_P(container) == IS_ARRAY)) {
 assign_dim_op_array:
+		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
+		if (UNEXPECTED(Z_ISREF_P(value) && Z_TYPE_P(Z_REFVAL_P(value)) == IS_ARRAY && Z_ARRVAL_P(Z_REFVAL_P(value)) == Z_ARRVAL_P(container) && !(GC_FLAGS(Z_ARRVAL_P(container)) & GC_IMMUTABLE))) {
+			/* The binary OP would normally deref the reference, so an increase in RC would only be done later.
+			 * We need to do this here already to do a correct array separation in case the value is related to the array.
+			 * The only case where this would be problematic is when the container and value are the same array. */
+			value_array = Z_ARR_P(Z_REFVAL_P(value));
+			GC_ADDREF(value_array);
+		} else {
+			value_array = NULL;
+		}
 		SEPARATE_ARRAY(container);
 		ht = Z_ARRVAL_P(container);
 assign_dim_op_new_array:
@@ -30952,8 +31005,6 @@ assign_dim_op_new_array:
 			}
 		}
 
-		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
-
 		do {
 			if (IS_CV != IS_UNUSED && UNEXPECTED(Z_ISREF_P(var_ptr))) {
 				zend_reference *ref = Z_REF_P(var_ptr);
@@ -30964,6 +31015,9 @@ assign_dim_op_new_array:
 				}
 			}
 			zend_binary_op(var_ptr, var_ptr, value OPLINE_CC);
+			if (UNEXPECTED(value_array)) {
+				GC_DTOR_NO_REF(value_array);
+			}
 		} while (0);
 
 		if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
@@ -31003,6 +31057,8 @@ assign_dim_op_new_array:
 					goto assign_dim_op_ret_null;
 				}
 			}
+			value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
+			value_array = NULL;
 			goto assign_dim_op_new_array;
 		} else {
 			dim = _get_zval_ptr_cv_BP_VAR_R(opline->op2.var EXECUTE_DATA_CC);
@@ -42566,12 +42622,23 @@ static ZEND_OPCODE_HANDLER_RET ZEND_FASTCALL ZEND_ASSIGN_DIM_OP_SPEC_CV_CONST_HA
 	zval *var_ptr;
 	zval *value, *container, *dim;
 	HashTable *ht;
+	zend_array *value_array;
 
 	SAVE_OPLINE();
 	container = EX_VAR(opline->op1.var);
 
 	if (EXPECTED(Z_TYPE_P(container) == IS_ARRAY)) {
 assign_dim_op_array:
+		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
+		if (UNEXPECTED(Z_ISREF_P(value) && Z_TYPE_P(Z_REFVAL_P(value)) == IS_ARRAY && Z_ARRVAL_P(Z_REFVAL_P(value)) == Z_ARRVAL_P(container) && !(GC_FLAGS(Z_ARRVAL_P(container)) & GC_IMMUTABLE))) {
+			/* The binary OP would normally deref the reference, so an increase in RC would only be done later.
+			 * We need to do this here already to do a correct array separation in case the value is related to the array.
+			 * The only case where this would be problematic is when the container and value are the same array. */
+			value_array = Z_ARR_P(Z_REFVAL_P(value));
+			GC_ADDREF(value_array);
+		} else {
+			value_array = NULL;
+		}
 		SEPARATE_ARRAY(container);
 		ht = Z_ARRVAL_P(container);
 assign_dim_op_new_array:
@@ -42593,8 +42660,6 @@ assign_dim_op_new_array:
 			}
 		}
 
-		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
-
 		do {
 			if (IS_CONST != IS_UNUSED && UNEXPECTED(Z_ISREF_P(var_ptr))) {
 				zend_reference *ref = Z_REF_P(var_ptr);
@@ -42605,6 +42670,9 @@ assign_dim_op_new_array:
 				}
 			}
 			zend_binary_op(var_ptr, var_ptr, value OPLINE_CC);
+			if (UNEXPECTED(value_array)) {
+				GC_DTOR_NO_REF(value_array);
+			}
 		} while (0);
 
 		if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
@@ -42644,6 +42712,8 @@ assign_dim_op_new_array:
 					goto assign_dim_op_ret_null;
 				}
 			}
+			value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
+			value_array = NULL;
 			goto assign_dim_op_new_array;
 		} else {
 			dim = RT_CONSTANT(opline, opline->op2);
@@ -46519,12 +46589,23 @@ static ZEND_OPCODE_HANDLER_RET ZEND_FASTCALL ZEND_ASSIGN_DIM_OP_SPEC_CV_TMPVAR_H
 	zval *var_ptr;
 	zval *value, *container, *dim;
 	HashTable *ht;
+	zend_array *value_array;
 
 	SAVE_OPLINE();
 	container = EX_VAR(opline->op1.var);
 
 	if (EXPECTED(Z_TYPE_P(container) == IS_ARRAY)) {
 assign_dim_op_array:
+		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
+		if (UNEXPECTED(Z_ISREF_P(value) && Z_TYPE_P(Z_REFVAL_P(value)) == IS_ARRAY && Z_ARRVAL_P(Z_REFVAL_P(value)) == Z_ARRVAL_P(container) && !(GC_FLAGS(Z_ARRVAL_P(container)) & GC_IMMUTABLE))) {
+			/* The binary OP would normally deref the reference, so an increase in RC would only be done later.
+			 * We need to do this here already to do a correct array separation in case the value is related to the array.
+			 * The only case where this would be problematic is when the container and value are the same array. */
+			value_array = Z_ARR_P(Z_REFVAL_P(value));
+			GC_ADDREF(value_array);
+		} else {
+			value_array = NULL;
+		}
 		SEPARATE_ARRAY(container);
 		ht = Z_ARRVAL_P(container);
 assign_dim_op_new_array:
@@ -46546,8 +46627,6 @@ assign_dim_op_new_array:
 			}
 		}
 
-		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
-
 		do {
 			if ((IS_TMP_VAR|IS_VAR) != IS_UNUSED && UNEXPECTED(Z_ISREF_P(var_ptr))) {
 				zend_reference *ref = Z_REF_P(var_ptr);
@@ -46558,6 +46637,9 @@ assign_dim_op_new_array:
 				}
 			}
 			zend_binary_op(var_ptr, var_ptr, value OPLINE_CC);
+			if (UNEXPECTED(value_array)) {
+				GC_DTOR_NO_REF(value_array);
+			}
 		} while (0);
 
 		if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
@@ -46597,6 +46679,8 @@ assign_dim_op_new_array:
 					goto assign_dim_op_ret_null;
 				}
 			}
+			value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
+			value_array = NULL;
 			goto assign_dim_op_new_array;
 		} else {
 			dim = _get_zval_ptr_var(opline->op2.var EXECUTE_DATA_CC);
@@ -49626,12 +49710,23 @@ static ZEND_OPCODE_HANDLER_RET ZEND_FASTCALL ZEND_ASSIGN_DIM_OP_SPEC_CV_UNUSED_H
 	zval *var_ptr;
 	zval *value, *container, *dim;
 	HashTable *ht;
+	zend_array *value_array;
 
 	SAVE_OPLINE();
 	container = EX_VAR(opline->op1.var);
 
 	if (EXPECTED(Z_TYPE_P(container) == IS_ARRAY)) {
 assign_dim_op_array:
+		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
+		if (UNEXPECTED(Z_ISREF_P(value) && Z_TYPE_P(Z_REFVAL_P(value)) == IS_ARRAY && Z_ARRVAL_P(Z_REFVAL_P(value)) == Z_ARRVAL_P(container) && !(GC_FLAGS(Z_ARRVAL_P(container)) & GC_IMMUTABLE))) {
+			/* The binary OP would normally deref the reference, so an increase in RC would only be done later.
+			 * We need to do this here already to do a correct array separation in case the value is related to the array.
+			 * The only case where this would be problematic is when the container and value are the same array. */
+			value_array = Z_ARR_P(Z_REFVAL_P(value));
+			GC_ADDREF(value_array);
+		} else {
+			value_array = NULL;
+		}
 		SEPARATE_ARRAY(container);
 		ht = Z_ARRVAL_P(container);
 assign_dim_op_new_array:
@@ -49653,8 +49748,6 @@ assign_dim_op_new_array:
 			}
 		}
 
-		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
-
 		do {
 			if (IS_UNUSED != IS_UNUSED && UNEXPECTED(Z_ISREF_P(var_ptr))) {
 				zend_reference *ref = Z_REF_P(var_ptr);
@@ -49665,6 +49758,9 @@ assign_dim_op_new_array:
 				}
 			}
 			zend_binary_op(var_ptr, var_ptr, value OPLINE_CC);
+			if (UNEXPECTED(value_array)) {
+				GC_DTOR_NO_REF(value_array);
+			}
 		} while (0);
 
 		if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
@@ -49704,6 +49800,8 @@ assign_dim_op_new_array:
 					goto assign_dim_op_ret_null;
 				}
 			}
+			value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
+			value_array = NULL;
 			goto assign_dim_op_new_array;
 		} else {
 			dim = NULL;
@@ -52022,12 +52120,23 @@ static ZEND_OPCODE_HANDLER_RET ZEND_FASTCALL ZEND_ASSIGN_DIM_OP_SPEC_CV_CV_HANDL
 	zval *var_ptr;
 	zval *value, *container, *dim;
 	HashTable *ht;
+	zend_array *value_array;
 
 	SAVE_OPLINE();
 	container = EX_VAR(opline->op1.var);
 
 	if (EXPECTED(Z_TYPE_P(container) == IS_ARRAY)) {
 assign_dim_op_array:
+		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
+		if (UNEXPECTED(Z_ISREF_P(value) && Z_TYPE_P(Z_REFVAL_P(value)) == IS_ARRAY && Z_ARRVAL_P(Z_REFVAL_P(value)) == Z_ARRVAL_P(container) && !(GC_FLAGS(Z_ARRVAL_P(container)) & GC_IMMUTABLE))) {
+			/* The binary OP would normally deref the reference, so an increase in RC would only be done later.
+			 * We need to do this here already to do a correct array separation in case the value is related to the array.
+			 * The only case where this would be problematic is when the container and value are the same array. */
+			value_array = Z_ARR_P(Z_REFVAL_P(value));
+			GC_ADDREF(value_array);
+		} else {
+			value_array = NULL;
+		}
 		SEPARATE_ARRAY(container);
 		ht = Z_ARRVAL_P(container);
 assign_dim_op_new_array:
@@ -52049,8 +52158,6 @@ assign_dim_op_new_array:
 			}
 		}
 
-		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
-
 		do {
 			if (IS_CV != IS_UNUSED && UNEXPECTED(Z_ISREF_P(var_ptr))) {
 				zend_reference *ref = Z_REF_P(var_ptr);
@@ -52061,6 +52168,9 @@ assign_dim_op_new_array:
 				}
 			}
 			zend_binary_op(var_ptr, var_ptr, value OPLINE_CC);
+			if (UNEXPECTED(value_array)) {
+				GC_DTOR_NO_REF(value_array);
+			}
 		} while (0);
 
 		if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
@@ -52100,6 +52210,8 @@ assign_dim_op_new_array:
 					goto assign_dim_op_ret_null;
 				}
 			}
+			value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
+			value_array = NULL;
 			goto assign_dim_op_new_array;
 		} else {
 			dim = _get_zval_ptr_cv_BP_VAR_R(opline->op2.var EXECUTE_DATA_CC);
