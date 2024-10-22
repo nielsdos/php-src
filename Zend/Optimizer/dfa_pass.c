@@ -1090,6 +1090,103 @@ static bool zend_dfa_try_to_replace_result(zend_op_array *op_array, zend_ssa *ss
 	return 0;
 }
 
+static bool dominates(const zend_basic_block *blocks, int a, int b) {
+	while (blocks[b].level > blocks[a].level) {
+		b = blocks[b].idom;
+	}
+	return a == b;
+}
+
+static bool zend_ssa_is_last_use(const zend_op_array *op_array, const zend_ssa *ssa, int var, int use)
+{
+	int next_use;
+
+	if (ssa->vars[var].phi_use_chain) {
+		zend_ssa_phi *phi = ssa->vars[var].phi_use_chain;
+		do {
+			if (!ssa->vars[phi->ssa_var].no_val) {
+				return 0;
+			}
+			phi = zend_ssa_next_use_phi(ssa, var, phi);
+		} while (phi);
+	}
+
+	if (ssa->cfg.blocks[ssa->cfg.map[use]].loop_header > 0
+		|| (ssa->cfg.blocks[ssa->cfg.map[use]].flags & ZEND_BB_LOOP_HEADER)) {
+		int b = ssa->cfg.map[use];
+		int prev_use = ssa->vars[var].use_chain;
+		int def_block;
+
+		if (ssa->vars[var].definition >= 0) {
+			def_block =ssa->cfg.map[ssa->vars[var].definition];
+		} else {
+			ZEND_ASSERT(ssa->vars[var].definition_phi);
+			def_block = ssa->vars[var].definition_phi->block;
+		}
+		if (dominates(ssa->cfg.blocks, def_block,
+					  (ssa->cfg.blocks[b].flags & ZEND_BB_LOOP_HEADER) ? b : ssa->cfg.blocks[b].loop_header)) {
+			return 0;
+		}
+
+		while (prev_use >= 0 && prev_use != use) {
+			if (b != ssa->cfg.map[prev_use]
+				&& dominates(ssa->cfg.blocks, b, ssa->cfg.map[prev_use])
+				&& !zend_ssa_is_no_val_use(op_array->opcodes + prev_use, ssa->ops + prev_use, var)) {
+				return 0;
+			}
+			prev_use = zend_ssa_next_use(ssa->ops, var, prev_use);
+		}
+	}
+
+	next_use = zend_ssa_next_use(ssa->ops, var, use);
+	if (next_use < 0) {
+		return 1;
+	} else if (zend_ssa_is_no_val_use(op_array->opcodes + next_use, ssa->ops + next_use, var)) {
+		return 1;
+	}
+	return 0;
+}
+
+/* Sets a flag on SEND ops when a copy can be a avoided. */
+static void zend_dfa_optimize_send_copies(zend_op_array *op_array, zend_ssa *ssa)
+{
+	/* func_get_args(), indirect accesses and exceptions could make the optimization observable.
+	 * The latter two cases are already tested before applying the DFA pass. */
+	ZEND_ASSERT(!op_array->last_try_catch);
+	ZEND_ASSERT(!(ssa->cfg.flags & ZEND_FUNC_INDIRECT_VAR_ACCESS));
+	if (ssa->cfg.flags & ZEND_FUNC_VARARG) {
+		return;
+	}
+
+	for (uint32_t i = 0; i < op_array->last; i++) {
+		zend_op *opline = op_array->opcodes + i;
+		if ((opline->opcode != ZEND_SEND_VAR && opline->opcode != ZEND_SEND_VAR_EX)
+		 || opline->op2_type != IS_UNUSED
+		 || opline->op1_type != IS_CV) {
+			continue;
+		}
+
+		// TODO: prevent argument modification
+
+		zend_ssa_op *ssa_op = ssa->ops + i;
+
+		int ssa_cv = ssa_op->op1_use;
+
+		uint32_t type = ssa->var_info[ssa_cv].type;
+		if ((type & (MAY_BE_REF|MAY_BE_UNDEF|MAY_BE_ANY)) != MAY_BE_STRING || !(type & MAY_BE_RC1)) {
+			continue;
+		}
+
+		zend_ssa_var *ssa_var = ssa->vars + ssa_cv;
+		//printf("flags %d %d\n", ssa_var->no_val, ssa_var->alias);
+		//printf("is last use %d\n", zend_ssa_is_last_use(op_array, ssa, ssa_cv, i));
+		if (!ssa_var->alias && zend_ssa_is_last_use(op_array, ssa, ssa_cv, i)) { // TODO: don't copy-paste this function pls
+			//printf("hello %p\n", ssa_var);
+			opline->extended_value = 1;//TODO: no magic number pls
+		}
+	}
+}
+
 void zend_dfa_optimize_op_array(zend_op_array *op_array, zend_optimizer_ctx *ctx, zend_ssa *ssa, zend_call_info **call_map)
 {
 	if (ctx->debug_level & ZEND_DUMP_BEFORE_DFA_PASS) {
@@ -1145,6 +1242,14 @@ void zend_dfa_optimize_op_array(zend_op_array *op_array, zend_optimizer_ctx *ctx
 			}
 #if ZEND_DEBUG_DFA
 			ssa_verify_integrity(op_array, ssa, "after dce");
+#endif
+		}
+
+		/* Optimization should not be done on main because of globals. */
+		if (op_array->function_name) {
+			zend_dfa_optimize_send_copies(op_array, ssa);
+#if ZEND_DEBUG_DFA
+			ssa_verify_integrity(op_array, ssa, "after optimize send copies");
 #endif
 		}
 
