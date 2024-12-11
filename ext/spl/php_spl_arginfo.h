@@ -1,5 +1,5 @@
 /* This is a generated file, edit the .stub.php file instead.
- * Stub hash: 21ec2dcca99c85c90afcd319da76016a9f678dc2 */
+ * Stub hash: c6e174b137ff27050be4fdc7f3ef5dbfb4b03ee8 */
 
 ZEND_BEGIN_ARG_WITH_RETURN_TYPE_MASK_EX(arginfo_class_implements, 0, 1, MAY_BE_ARRAY|MAY_BE_FALSE)
 	ZEND_ARG_INFO(0, object_or_class)
@@ -61,6 +61,10 @@ ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_iterator_to_array, 0, 1, IS_ARRA
 	ZEND_ARG_TYPE_INFO_WITH_DEFAULT_VALUE(0, preserve_keys, _IS_BOOL, 0, "true")
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_WITH_RETURN_OBJ_INFO_EX(arginfo_iterator_zip, 0, 0, InternalIterator, 0)
+	ZEND_ARG_VARIADIC_OBJ_TYPE_MASK(0, iterators, Traversable, MAY_BE_ARRAY)
+ZEND_END_ARG_INFO()
+
 ZEND_FUNCTION(class_implements);
 ZEND_FUNCTION(class_parents);
 ZEND_FUNCTION(class_uses);
@@ -76,6 +80,7 @@ ZEND_FUNCTION(spl_object_id);
 ZEND_FUNCTION(iterator_apply);
 ZEND_FUNCTION(iterator_count);
 ZEND_FUNCTION(iterator_to_array);
+ZEND_FUNCTION(iterator_zip);
 
 static const zend_function_entry ext_functions[] = {
 	ZEND_FE(class_implements, arginfo_class_implements)
@@ -93,5 +98,6 @@ static const zend_function_entry ext_functions[] = {
 	ZEND_FE(iterator_apply, arginfo_iterator_apply)
 	ZEND_FE(iterator_count, arginfo_iterator_count)
 	ZEND_FE(iterator_to_array, arginfo_iterator_to_array)
+	ZEND_FE(iterator_zip, arginfo_iterator_zip)
 	ZEND_FE_END
 };
