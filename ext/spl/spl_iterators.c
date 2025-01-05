@@ -3027,7 +3027,7 @@ PHP_FUNCTION(iterator_to_array)
 } /* }}} */
 
 typedef struct {
-	/* To distinguish betwseen arrays and iterator objects we use the fact that UINT32_MAX
+	/* To distinguish between arrays and iterator objects we use the fact that UINT32_MAX
 	 * is not a possible array hash position index. */
 	HashPosition hash_position_or_tag;
 	union {
