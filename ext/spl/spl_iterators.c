@@ -3214,7 +3214,7 @@ static const zend_object_iterator_funcs spl_iterator_zip_funcs = {
 	NULL, /* get_gc */
 };
 
-// TODO: by ref support ??? (what happens now when we have a ref-returning generator?)
+// TODO: by_ref support ???
 PHP_FUNCTION(iterator_zip)
 {
 	zval *argv;

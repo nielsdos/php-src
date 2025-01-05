@@ -44,6 +44,20 @@ foreach (iterator_zip(gen_with_key(0), $a) as $key => $val) {
     unset($key);
 }
 
+function &gen_reference() {
+    $value = 3;
+
+    while ($value > 0) {
+        yield $value;
+    }
+}
+
+foreach (iterator_zip(gen_reference(), gen_reference()) as $vals) {
+    var_dump($vals);
+    --$vals[0];
+    --$vals[1];
+}
+
 ?>
 --EXPECT--
 int(1)
@@ -95,3 +109,21 @@ KEYS: b, y
 VALS: 1, 2
 KEYS: 3, 3
 VALS: 2, 3
+array(2) {
+  [0]=>
+  &int(3)
+  [1]=>
+  &int(3)
+}
+array(2) {
+  [0]=>
+  &int(2)
+  [1]=>
+  &int(2)
+}
+array(2) {
+  [0]=>
+  &int(1)
+  [1]=>
+  &int(1)
+}
