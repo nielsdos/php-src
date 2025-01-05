@@ -3203,35 +3203,6 @@ void spl_iterator_zip_rewind(zend_object_iterator *iter)
 	}
 }
 
-static HashTable *spl_iterator_zip_get_gc(zend_object_iterator *iter, zval **table, int *n)
-{
-	spl_zip_iterator *zip_iterator = (spl_zip_iterator *) iter;
-
-	HashTable *ht_slot = NULL;
-
-	// TODO: there can only be one gc_buffer active at a time
-
-	for (uint32_t i = 0; i < zip_iterator->iterator_count; i++) {
-		// TODO: array ????
-		spl_zip_iterator_entry *current = &zip_iterator->iterators[i];
-		if (spl_zip_iterator_is_obj_entry(current)) {
-			if (current->obj_iter->funcs->get_gc) {
-				//HashTable *ht = current->obj_iter->funcs->get_gc(current->obj_iter, tmp_table, tmp_n);
-				if (ht_slot) {
-
-				} else {
-					//ht_slot = ht;
-				}
-			}
-		}
-	}
-
-	*table = NULL;
-	*n = 0;
-
-	return ht_slot;
-}
-
 static const zend_object_iterator_funcs spl_iterator_zip_funcs = {
 	spl_iterator_zip_dtor,
 	spl_iterator_zip_valid,
@@ -3240,7 +3211,7 @@ static const zend_object_iterator_funcs spl_iterator_zip_funcs = {
 	spl_iterator_zip_move_forward,
 	spl_iterator_zip_rewind,
 	NULL, /* invalidate_current */ // TODO ???
-	spl_iterator_zip_get_gc, /* get_gc */
+	NULL, /* get_gc */
 };
 
 // TODO: by ref support ??? (what happens now when we have a ref-returning generator?)
