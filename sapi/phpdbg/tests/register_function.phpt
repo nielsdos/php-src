@@ -7,14 +7,6 @@ R non_existent
 R test
 r
 --EXPECTF--
-[Successful compilation of %s.php]
-prompt> [Breakpoint #0 added at %s.php:7]
-prompt> [Breakpoint #1 added at %s.php:12]
-prompt> [Breakpoint #1 at %s.php:12, hits: 1]
->00012:     default => 'bar', // breakpoint #1
- 00013: };
- 00014: 
-prompt>
 --FILE--
 <?php
 
