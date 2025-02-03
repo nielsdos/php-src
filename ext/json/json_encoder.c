@@ -447,12 +447,6 @@ static zend_always_inline __m128i php_json_create_sse_escape_mask(int options)
 	const char tag2 = (options & PHP_JSON_HEX_TAG) ? '>' : sentinel;
 	return _mm_setr_epi8('"', amp, apos, slash, tag1, tag2, '\\', 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }
-#endif
-
-#ifdef ZEND_INTRIN_SSE4_2_FUNC_PROTO
-static int php_json_sse42_compute_escape_intersection(const __m128i mask, const __m128i input) __attribute__((ifunc("resolve_json_escape_intersection")));
-
-typedef int (*php_json_compute_escape_intersection_t)(const __m128i mask, const __m128i input);
 
 ZEND_INTRIN_SSE4_2_FUNC_DECL(int php_json_sse42_compute_escape_intersection_real(const __m128i mask, const __m128i input));
 zend_always_inline int php_json_sse42_compute_escape_intersection_real(const __m128i mask, const __m128i input)
@@ -460,6 +454,12 @@ zend_always_inline int php_json_sse42_compute_escape_intersection_real(const __m
 	const __m128i result_individual_bytes = _mm_cmpistrm(mask, input, _SIDD_SBYTE_OPS | _SIDD_CMP_EQUAL_ANY | _SIDD_BIT_MASK);
 	return _mm_cvtsi128_si32(result_individual_bytes);
 }
+#endif
+
+#ifdef ZEND_INTRIN_SSE4_2_FUNC_PROTO
+static int php_json_sse42_compute_escape_intersection(const __m128i mask, const __m128i input) __attribute__((ifunc("resolve_json_escape_intersection")));
+
+typedef int (*php_json_compute_escape_intersection_t)(const __m128i mask, const __m128i input);
 
 ZEND_NO_SANITIZE_ADDRESS
 ZEND_ATTRIBUTE_UNUSED /* clang mistakenly warns about this */
