@@ -432,6 +432,20 @@ static zend_always_inline bool php_json_printable_ascii_escape(smart_str *buf, u
 	return true;
 }
 
+#ifdef __SSE2__
+// TODO: may be unused
+static zend_always_inline __m128i php_json_create_sse_escape_mask(int options)
+{
+	const char sentinel = 1; /* outside of the printable range, so no false matches are possible */
+	const char amp = (options & PHP_JSON_HEX_AMP) ? '&' : sentinel;
+	const char apos = (options & PHP_JSON_HEX_APOS) ? '\'' : sentinel;
+	const char slash = !(options & PHP_JSON_UNESCAPED_SLASHES) ? '/' : sentinel;
+	const char tag1 = (options & PHP_JSON_HEX_TAG) ? '<' : sentinel;
+	const char tag2 = (options & PHP_JSON_HEX_TAG) ? '>' : sentinel;
+	return _mm_setr_epi8('"', amp, apos, slash, tag1, tag2, '\\', 0, 0, 0, 0, 0, 0, 0, 0, 0);
+}
+#endif
+
 zend_result php_json_escape_string(
 		smart_str *buf, const char *s, size_t len,
 		int options, php_json_encoder *encoder) /* {{{ */
@@ -469,6 +483,11 @@ zend_result php_json_escape_string(
 
 	pos = 0;
 
+#ifdef __SSE2__
+	const __m128i sse_escape_mask = php_json_create_sse_escape_mask(options);
+	(void) sse_escape_mask;
+#endif
+
 	do {
 		static const uint32_t charmap[8] = {
 			0xffffffff, 0x500080c4, 0x10000000, 0x00000000,
@@ -487,7 +506,7 @@ zend_result php_json_escape_string(
 				break;
 			}
 
-#if 1
+#if 0
 			const __m128i result_34 = _mm_cmpeq_epi8(input, _mm_set1_epi8('"'));
 			const __m128i result_38 = _mm_cmpeq_epi8(input, _mm_set1_epi8('&'));
 			const __m128i result_39 = _mm_cmpeq_epi8(input, _mm_set1_epi8('\''));
@@ -506,7 +525,7 @@ zend_result php_json_escape_string(
 			const __m128i result_individual_bytes = _mm_or_si128(result_34_38_39_47, result_60_62_92);
 			int mask = _mm_movemask_epi8(result_individual_bytes);
 #else
-			const __m128i result_individual_bytes = _mm_cmpistrm(_mm_setr_epi8('"', '&', '\'', '/', '<', '>', '\\', 0, 0, 0, 0, 0, 0, 0, 0, 0), input, _SIDD_SBYTE_OPS | _SIDD_CMP_EQUAL_ANY | _SIDD_BIT_MASK);
+			const __m128i result_individual_bytes = _mm_cmpistrm(sse_escape_mask, input, _SIDD_SBYTE_OPS | _SIDD_CMP_EQUAL_ANY | _SIDD_BIT_MASK);
 			int mask = _mm_cvtsi128_si32(result_individual_bytes);
 #endif
 			if (mask != 0) {
