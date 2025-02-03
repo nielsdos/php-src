@@ -508,27 +508,31 @@ zend_result php_json_escape_string(
 			const __m128i result_individual_bytes = _mm_cmpistrm(_mm_setr_epi8(34, 38, 39, 47, 60, 62, 92, 0, 0, 0, 0, 0, 0, 0, 0, 0), input, _SIDD_SBYTE_OPS | _SIDD_CMP_EQUAL_ANY | _SIDD_BIT_MASK);
 			int mask = _mm_cvtsi128_si32(result_individual_bytes);
 #endif
-			int acc = 0;
 			if (mask != 0) {
+				int shift = __builtin_clz(mask) - 16;
 				do {
+					/* Note that we shift the input forward, so we have to shift the mask as well,
+					 * beyond the to-be-escaped character */
 					int len = __builtin_ctz(mask);
 					mask >>= len + 1;
 
 					smart_str_appendl(buf, s, len + pos);
 
-					acc += len + 1;
 					pos += len;
-					us = (unsigned char)s[pos++];
-					s += pos;
+					us = (unsigned char)s[pos];
+					s += pos + 1; /* skip 'us' */
 					pos = 0;
 
 					bool handled = php_json_printable_ascii_escape(buf, us, options);
 					ZEND_ASSERT(handled == true);
 				} while (mask != 0);
+
+				pos += shift;
+			} else {
+				pos += sizeof(__m128i);
 			}
 
 			len -= sizeof(__m128i);
-			pos += sizeof(__m128i) - acc;
 		}
 
 		if (!len) {
