@@ -487,14 +487,14 @@ zend_result php_json_escape_string(
 				break;
 			}
 
-#if 0
-			const __m128i result_34 = _mm_cmpeq_epi8(input, _mm_set1_epi8(34));
-			const __m128i result_38 = _mm_cmpeq_epi8(input, _mm_set1_epi8(38));
-			const __m128i result_39 = _mm_cmpeq_epi8(input, _mm_set1_epi8(39));
-			const __m128i result_47 = _mm_cmpeq_epi8(input, _mm_set1_epi8(47));
-			const __m128i result_60 = _mm_cmpeq_epi8(input, _mm_set1_epi8(60));
-			const __m128i result_62 = _mm_cmpeq_epi8(input, _mm_set1_epi8(62));
-			const __m128i result_92 = _mm_cmpeq_epi8(input, _mm_set1_epi8(92));
+#if 1
+			const __m128i result_34 = _mm_cmpeq_epi8(input, _mm_set1_epi8('"'));
+			const __m128i result_38 = _mm_cmpeq_epi8(input, _mm_set1_epi8('&'));
+			const __m128i result_39 = _mm_cmpeq_epi8(input, _mm_set1_epi8('\''));
+			const __m128i result_47 = _mm_cmpeq_epi8(input, _mm_set1_epi8('/'));
+			const __m128i result_60 = _mm_cmpeq_epi8(input, _mm_set1_epi8('<'));
+			const __m128i result_62 = _mm_cmpeq_epi8(input, _mm_set1_epi8('>'));
+			const __m128i result_92 = _mm_cmpeq_epi8(input, _mm_set1_epi8('\\'));
 
 			const __m128i result_34_38 = _mm_or_si128(result_34, result_38);
 			const __m128i result_39_47 = _mm_or_si128(result_39, result_47);
@@ -506,7 +506,7 @@ zend_result php_json_escape_string(
 			const __m128i result_individual_bytes = _mm_or_si128(result_34_38_39_47, result_60_62_92);
 			int mask = _mm_movemask_epi8(result_individual_bytes);
 #else
-			const __m128i result_individual_bytes = _mm_cmpistrm(_mm_setr_epi8(34, 38, 39, 47, 60, 62, 92, 0, 0, 0, 0, 0, 0, 0, 0, 0), input, _SIDD_SBYTE_OPS | _SIDD_CMP_EQUAL_ANY | _SIDD_BIT_MASK);
+			const __m128i result_individual_bytes = _mm_cmpistrm(_mm_setr_epi8('"', '&', '\'', '/', '<', '>', '\\', 0, 0, 0, 0, 0, 0, 0, 0, 0), input, _SIDD_SBYTE_OPS | _SIDD_CMP_EQUAL_ANY | _SIDD_BIT_MASK);
 			int mask = _mm_cvtsi128_si32(result_individual_bytes);
 #endif
 			if (mask != 0) {
