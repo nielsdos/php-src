@@ -504,14 +504,11 @@ zend_result php_json_escape_string(
 			//}
 			//printf("\n");
 
-			// TODO: problem if the first UTF-8 char comes before the first escape char
-			// and getting this right+performant is hard, so for now we just don't shift.
+			int max_shift = 16;
+
 			int input_range_mask = _mm_movemask_epi8(input_range);
 			if (input_range_mask != 0) {
-				//int shift = __builtin_ctz(input_range_mask);
-				//pos += shift;
-				//len -= shift;
-				break;
+				max_shift = __builtin_ctz(input_range_mask);
 			}
 
 #if 0
@@ -537,7 +534,13 @@ zend_result php_json_escape_string(
 			int mask = _mm_cvtsi128_si32(result_individual_bytes);
 #endif
 			if (mask != 0) {
-				int shift = __builtin_clz(mask) - 16;
+				if (max_shift < 16) {
+					int shift = __builtin_ctz(mask); /* first offending character */
+					pos += MIN(max_shift, shift);
+					len -= MIN(max_shift, shift);
+					break;
+				}
+				int shift = __builtin_clz(mask) - 16; /* skips over everything */
 				do {
 					/* Note that we shift the input forward, so we have to shift the mask as well,
 					 * beyond the to-be-escaped character */
@@ -557,6 +560,11 @@ zend_result php_json_escape_string(
 
 				pos += shift;
 			} else {
+				if (max_shift < 16) {
+					pos += max_shift;
+					len -= max_shift;
+					break;
+				}
 				pos += sizeof(__m128i);
 			}
 
