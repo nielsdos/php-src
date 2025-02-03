@@ -474,6 +474,7 @@ zend_result php_json_escape_string(
 			0xffffffff, 0x500080c4, 0x10000000, 0x00000000,
 			0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff};
 
+#ifdef __SSE2__
 		while (len >= sizeof(__m128i)) {
 			const __m128i input = _mm_loadu_si128((__m128i *) (s + pos));
 			const __m128i input_range = _mm_cmpgt_epi8(input, _mm_set1_epi8(31));
@@ -538,6 +539,7 @@ zend_result php_json_escape_string(
 		if (!len) {
 			break;
 		}
+#endif
 
 		us = (unsigned char)s[pos];
 		if (EXPECTED(!ZEND_BIT_TEST(charmap, us))) {
