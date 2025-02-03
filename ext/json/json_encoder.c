@@ -498,12 +498,6 @@ zend_result php_json_escape_string(
 			const __m128i input = _mm_loadu_si128((__m128i *) (s + pos));
 			const __m128i input_range = _mm_cmplt_epi8(input, _mm_set1_epi8(32));
 
-			//const uint8_t *raw = (const uint8_t *) &input_range;
-			//for (int i =0;i<16;i++) {
-			//	printf("%x ", raw[i]);
-			//}
-			//printf("\n");
-
 			int max_shift = 16;
 
 			int input_range_mask = _mm_movemask_epi8(input_range);
