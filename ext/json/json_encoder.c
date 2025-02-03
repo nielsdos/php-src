@@ -511,16 +511,14 @@ zend_result php_json_escape_string(
 			int acc = 0;
 			if (mask != 0) {
 				do {
-					int toggle = mask & -mask;
-					int bit = __builtin_ctz(mask);
-					mask ^= toggle;
+					int len = __builtin_ctz(mask);
+					mask >>= len + 1;
 
-					int len = bit - acc;
 					smart_str_appendl(buf, s, len + pos);
 
 					acc += len + 1;
 					pos += len;
-					us = (unsigned char) s[pos++];
+					us = (unsigned char)s[pos++];
 					s += pos;
 					pos = 0;
 
