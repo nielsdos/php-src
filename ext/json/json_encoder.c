@@ -30,9 +30,9 @@
 #include "zend_property_hooks.h"
 #include "zend_lazy_objects.h"
 
-#include <nmmintrin.h>
-# pragma GCC push_options
-# pragma GCC target ("sse4.2")
+#ifdef ZEND_INTRIN_SSE4_2_NATIVE
+# include <nmmintrin.h>
+#endif
 
 static const char digits[] = "0123456789abcdef";
 
@@ -432,8 +432,7 @@ static zend_always_inline bool php_json_printable_ascii_escape(smart_str *buf, u
 	return true;
 }
 
-#ifdef __SSE2__
-// TODO: may be unused
+#ifdef ZEND_INTRIN_SSE4_2_NATIVE
 static zend_always_inline __m128i php_json_create_sse_escape_mask(int options)
 {
 	const char sentinel = 1; /* outside of the printable range, so no false matches are possible */
@@ -483,9 +482,8 @@ zend_result php_json_escape_string(
 
 	pos = 0;
 
-#ifdef __SSE2__
+#ifdef ZEND_INTRIN_SSE4_2_NATIVE
 	const __m128i sse_escape_mask = php_json_create_sse_escape_mask(options);
-	(void) sse_escape_mask;
 #endif
 
 	do {
@@ -505,7 +503,10 @@ zend_result php_json_escape_string(
 				max_shift = __builtin_ctz(input_range_mask);
 			}
 
-#if 0
+#ifdef ZEND_INTRIN_SSE4_2_NATIVE /* TODO: resolver support */
+			const __m128i result_individual_bytes = _mm_cmpistrm(sse_escape_mask, input, _SIDD_SBYTE_OPS | _SIDD_CMP_EQUAL_ANY | _SIDD_BIT_MASK);
+			int mask = _mm_cvtsi128_si32(result_individual_bytes);
+#else
 			const __m128i result_34 = _mm_cmpeq_epi8(input, _mm_set1_epi8('"'));
 			const __m128i result_38 = _mm_cmpeq_epi8(input, _mm_set1_epi8('&'));
 			const __m128i result_39 = _mm_cmpeq_epi8(input, _mm_set1_epi8('\''));
@@ -523,9 +524,6 @@ zend_result php_json_escape_string(
 
 			const __m128i result_individual_bytes = _mm_or_si128(result_34_38_39_47, result_60_62_92);
 			int mask = _mm_movemask_epi8(result_individual_bytes);
-#else
-			const __m128i result_individual_bytes = _mm_cmpistrm(sse_escape_mask, input, _SIDD_SBYTE_OPS | _SIDD_CMP_EQUAL_ANY | _SIDD_BIT_MASK);
-			int mask = _mm_cvtsi128_si32(result_individual_bytes);
 #endif
 			if (mask != 0) {
 				if (max_shift < 16) {
