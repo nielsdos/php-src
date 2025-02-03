@@ -30,6 +30,10 @@
 #include "zend_property_hooks.h"
 #include "zend_lazy_objects.h"
 
+#include <nmmintrin.h>
+# pragma GCC push_options
+# pragma GCC target ("sse4.2")
+
 static const char digits[] = "0123456789abcdef";
 
 static zend_always_inline bool php_json_check_stack_limit(void)
@@ -366,6 +370,68 @@ static zend_result php_json_encode_array(smart_str *buf, zval *val, int options,
 }
 /* }}} */
 
+static zend_always_inline bool php_json_printable_ascii_escape(smart_str *buf, unsigned char us, int options)
+{
+	switch (us) {
+		case '"':
+			if (options & PHP_JSON_HEX_QUOT) {
+				smart_str_appendl(buf, "\\u0022", 6);
+			} else {
+				smart_str_appendl(buf, "\\\"", 2);
+			}
+			break;
+
+		case '\\':
+			smart_str_appendl(buf, "\\\\", 2);
+			break;
+
+		case '/':
+			if (options & PHP_JSON_UNESCAPED_SLASHES) {
+				smart_str_appendc(buf, '/');
+			} else {
+				smart_str_appendl(buf, "\\/", 2);
+			}
+			break;
+
+		case '<':
+			if (options & PHP_JSON_HEX_TAG) {
+				smart_str_appendl(buf, "\\u003C", 6);
+			} else {
+				smart_str_appendc(buf, '<');
+			}
+			break;
+
+		case '>':
+			if (options & PHP_JSON_HEX_TAG) {
+				smart_str_appendl(buf, "\\u003E", 6);
+			} else {
+				smart_str_appendc(buf, '>');
+			}
+			break;
+
+		case '&':
+			if (options & PHP_JSON_HEX_AMP) {
+				smart_str_appendl(buf, "\\u0026", 6);
+			} else {
+				smart_str_appendc(buf, '&');
+			}
+			break;
+
+		case '\'':
+			if (options & PHP_JSON_HEX_APOS) {
+				smart_str_appendl(buf, "\\u0027", 6);
+			} else {
+				smart_str_appendc(buf, '\'');
+			}
+			break;
+
+		default:
+			return false;
+	}
+
+	return true;
+}
+
 zend_result php_json_escape_string(
 		smart_str *buf, const char *s, size_t len,
 		int options, php_json_encoder *encoder) /* {{{ */
@@ -408,21 +474,79 @@ zend_result php_json_escape_string(
 			0xffffffff, 0x500080c4, 0x10000000, 0x00000000,
 			0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff};
 
+		while (len >= sizeof(__m128i)) {
+			const __m128i input = _mm_loadu_si128((__m128i *) (s + pos));
+			const __m128i input_range = _mm_cmpgt_epi8(input, _mm_set1_epi8(31));
+
+			int input_range_mask = _mm_movemask_epi8(input_range);
+			if (input_range_mask != 0xffff) {
+				int shift = __builtin_clz(~input_range_mask);
+				pos += shift;
+				len -= shift;
+				break;
+			}
+
+#if 0
+			const __m128i result_34 = _mm_cmpeq_epi8(input, _mm_set1_epi8(34));
+			const __m128i result_38 = _mm_cmpeq_epi8(input, _mm_set1_epi8(38));
+			const __m128i result_39 = _mm_cmpeq_epi8(input, _mm_set1_epi8(39));
+			const __m128i result_47 = _mm_cmpeq_epi8(input, _mm_set1_epi8(47));
+			const __m128i result_60 = _mm_cmpeq_epi8(input, _mm_set1_epi8(60));
+			const __m128i result_62 = _mm_cmpeq_epi8(input, _mm_set1_epi8(62));
+			const __m128i result_92 = _mm_cmpeq_epi8(input, _mm_set1_epi8(92));
+
+			const __m128i result_34_38 = _mm_or_si128(result_34, result_38);
+			const __m128i result_39_47 = _mm_or_si128(result_39, result_47);
+			const __m128i result_60_62 = _mm_or_si128(result_60, result_62);
+
+			const __m128i result_34_38_39_47 = _mm_or_si128(result_34_38, result_39_47);
+			const __m128i result_60_62_92 = _mm_or_si128(result_60_62, result_92);
+
+			const __m128i result_individual_bytes = _mm_or_si128(result_34_38_39_47, result_60_62_92);
+			int mask = _mm_movemask_epi8(result_individual_bytes);
+#else
+			const __m128i result_individual_bytes = _mm_cmpistrm(_mm_setr_epi8(34, 38, 39, 47, 60, 62, 92, 0, 0, 0, 0, 0, 0, 0, 0, 0), input, _SIDD_SBYTE_OPS | _SIDD_CMP_EQUAL_ANY | _SIDD_BIT_MASK);
+			int mask = _mm_cvtsi128_si32(result_individual_bytes);
+#endif
+			int acc = 0;
+			if (mask != 0) {
+				do {
+					int toggle = mask & -mask;
+					int bit = __builtin_ctz(mask);
+					mask ^= toggle;
+
+					int len = bit - acc;
+					smart_str_appendl(buf, s, len + pos);
+
+					acc += len + 1;
+					pos += len;
+					us = (unsigned char) s[pos++];
+					s += pos;
+					pos = 0;
+
+					bool handled = php_json_printable_ascii_escape(buf, us, options);
+					ZEND_ASSERT(handled == true);
+				} while (mask != 0);
+			}
+
+			len -= sizeof(__m128i);
+			pos += sizeof(__m128i) - acc;
+		}
+
+		if (!len) {
+			break;
+		}
+
 		us = (unsigned char)s[pos];
 		if (EXPECTED(!ZEND_BIT_TEST(charmap, us))) {
 			pos++;
 			len--;
-			if (len == 0) {
-				smart_str_appendl(buf, s, pos);
-				break;
-			}
 		} else {
 			if (pos) {
 				smart_str_appendl(buf, s, pos);
 				s += pos;
 				pos = 0;
 			}
-			us = (unsigned char)s[0];
 			if (UNEXPECTED(us >= 0x80)) {
 				zend_result status;
 				us = php_next_utf8_char((unsigned char *)s, len, &pos, &status);
@@ -485,26 +609,6 @@ zend_result php_json_escape_string(
 			} else {
 				s++;
 				switch (us) {
-					case '"':
-						if (options & PHP_JSON_HEX_QUOT) {
-							smart_str_appendl(buf, "\\u0022", 6);
-						} else {
-							smart_str_appendl(buf, "\\\"", 2);
-						}
-						break;
-
-					case '\\':
-						smart_str_appendl(buf, "\\\\", 2);
-						break;
-
-					case '/':
-						if (options & PHP_JSON_UNESCAPED_SLASHES) {
-							smart_str_appendc(buf, '/');
-						} else {
-							smart_str_appendl(buf, "\\/", 2);
-						}
-						break;
-
 					case '\b':
 						smart_str_appendl(buf, "\\b", 2);
 						break;
@@ -525,53 +629,27 @@ zend_result php_json_escape_string(
 						smart_str_appendl(buf, "\\t", 2);
 						break;
 
-					case '<':
-						if (options & PHP_JSON_HEX_TAG) {
-							smart_str_appendl(buf, "\\u003C", 6);
-						} else {
-							smart_str_appendc(buf, '<');
-						}
-						break;
-
-					case '>':
-						if (options & PHP_JSON_HEX_TAG) {
-							smart_str_appendl(buf, "\\u003E", 6);
-						} else {
-							smart_str_appendc(buf, '>');
-						}
-						break;
-
-					case '&':
-						if (options & PHP_JSON_HEX_AMP) {
-							smart_str_appendl(buf, "\\u0026", 6);
-						} else {
-							smart_str_appendc(buf, '&');
-						}
-						break;
-
-					case '\'':
-						if (options & PHP_JSON_HEX_APOS) {
-							smart_str_appendl(buf, "\\u0027", 6);
-						} else {
-							smart_str_appendc(buf, '\'');
-						}
-						break;
-
 					default:
-						ZEND_ASSERT(us < ' ');
-						dst = smart_str_extend(buf, 6);
-						dst[0] = '\\';
-						dst[1] = 'u';
-						dst[2] = '0';
-						dst[3] = '0';
-						dst[4] = digits[(us >> 4) & 0xf];
-						dst[5] = digits[us & 0xf];
+						if (!php_json_printable_ascii_escape(buf, us, options)) {
+							ZEND_ASSERT(us < ' ');
+							dst = smart_str_extend(buf, 6);
+							dst[0] = '\\';
+							dst[1] = 'u';
+							dst[2] = '0';
+							dst[3] = '0';
+							dst[4] = digits[(us >> 4) & 0xf];
+							dst[5] = digits[us & 0xf];
+						}
 						break;
 				}
 				len--;
 			}
 		}
 	} while (len);
+
+	if (pos) {
+		smart_str_appendl(buf, s, pos);
+	}
 
 	smart_str_appendc(buf, '"');
 
