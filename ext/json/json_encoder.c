@@ -492,15 +492,22 @@ zend_result php_json_escape_string(
 		static const uint32_t charmap[8] = {
 			0xffffffff, 0x500080c4, 0x10000000, 0x00000000,
 			0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff};
-
+// printf("pos %d\n", pos);
 #ifdef __SSE2__
 		while (len >= sizeof(__m128i)) {
 			const __m128i input = _mm_loadu_si128((__m128i *) (s + pos));
-			const __m128i input_range = _mm_cmpgt_epi8(input, _mm_set1_epi8(31));
+			const __m128i input_range = _mm_cmplt_epi8(input, _mm_set1_epi8(32));
 
+			//const uint8_t *raw = (const uint8_t *) &input_range;
+			//for (int i =0;i<16;i++) {
+			//	printf("%x ", raw[i]);
+			//}
+			//printf("\n");
+
+			// TODO: problem if the first UTF-8 char comes before the first escape char
 			int input_range_mask = _mm_movemask_epi8(input_range);
-			if (input_range_mask != 0xffff) {
-				int shift = __builtin_clz(~input_range_mask);
+			if (input_range_mask != 0) {
+				int shift = __builtin_ctz(input_range_mask);
 				pos += shift;
 				len -= shift;
 				break;
