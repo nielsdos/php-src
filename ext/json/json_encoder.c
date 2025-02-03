@@ -29,6 +29,7 @@
 #include "zend_enum.h"
 #include "zend_property_hooks.h"
 #include "zend_lazy_objects.h"
+#include "zend_bitset.h"
 
 #ifdef ZEND_INTRIN_SSE4_2_NATIVE
 # include <nmmintrin.h>
@@ -500,7 +501,7 @@ zend_result php_json_escape_string(
 
 			int input_range_mask = _mm_movemask_epi8(input_range);
 			if (input_range_mask != 0) {
-				max_shift = __builtin_ctz(input_range_mask);
+				max_shift = zend_ulong_ntz(input_range_mask);
 			}
 
 #ifdef ZEND_INTRIN_SSE4_2_NATIVE /* TODO: resolver support */
@@ -527,16 +528,16 @@ zend_result php_json_escape_string(
 #endif
 			if (mask != 0) {
 				if (max_shift < 16) {
-					int shift = __builtin_ctz(mask); /* first offending character */
+					int shift = zend_ulong_ntz(mask); /* first offending character */
 					pos += MIN(max_shift, shift);
 					len -= MIN(max_shift, shift);
 					break;
 				}
-				int shift = __builtin_clz(mask) - 16; /* skips over everything */
+				int shift = zend_ulong_nlz(mask) - 16 - (SIZEOF_ZEND_LONG == 8 ? 32 : 0); /* skips over everything */
 				do {
 					/* Note that we shift the input forward, so we have to shift the mask as well,
 					 * beyond the to-be-escaped character */
-					int len = __builtin_ctz(mask);
+					int len = zend_ulong_ntz(mask);
 					mask >>= len + 1;
 
 					smart_str_appendl(buf, s, len + pos);
