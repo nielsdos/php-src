@@ -31,8 +31,11 @@
 #include "zend_lazy_objects.h"
 #include "zend_bitset.h"
 
-#ifdef ZEND_INTRIN_SSE4_2_NATIVE
+#if defined(ZEND_INTRIN_SSE4_2_NATIVE) || defined(ZEND_INTRIN_SSE4_2_FUNC_PROTO)
 # include <nmmintrin.h>
+#endif
+#ifdef ZEND_INTRIN_SSE4_2_FUNC_PROTO
+# include "zend_cpuinfo.h"
 #endif
 
 static const char digits[] = "0123456789abcdef";
@@ -433,7 +436,7 @@ static zend_always_inline bool php_json_printable_ascii_escape(smart_str *buf, u
 	return true;
 }
 
-#ifdef ZEND_INTRIN_SSE4_2_NATIVE
+#if defined(ZEND_INTRIN_SSE4_2_NATIVE) || defined(ZEND_INTRIN_SSE4_2_FUNC_PROTO)
 static zend_always_inline __m128i php_json_create_sse_escape_mask(int options)
 {
 	const char sentinel = 1; /* outside of the printable range, so no false matches are possible */
@@ -443,6 +446,28 @@ static zend_always_inline __m128i php_json_create_sse_escape_mask(int options)
 	const char tag1 = (options & PHP_JSON_HEX_TAG) ? '<' : sentinel;
 	const char tag2 = (options & PHP_JSON_HEX_TAG) ? '>' : sentinel;
 	return _mm_setr_epi8('"', amp, apos, slash, tag1, tag2, '\\', 0, 0, 0, 0, 0, 0, 0, 0, 0);
+}
+#endif
+
+#ifdef ZEND_INTRIN_SSE4_2_FUNC_PROTO
+static int php_json_sse42_compute_escape_intersection(const __m128i mask, const __m128i input) __attribute__((ifunc("resolve_json_escape_intersection")));
+
+typedef int (*php_json_compute_escape_intersection_t)(const __m128i mask, const __m128i input);
+
+ZEND_INTRIN_SSE4_2_FUNC_DECL(int php_json_sse42_compute_escape_intersection_real(const __m128i mask, const __m128i input));
+zend_always_inline int php_json_sse42_compute_escape_intersection_real(const __m128i mask, const __m128i input)
+{
+	const __m128i result_individual_bytes = _mm_cmpistrm(mask, input, _SIDD_SBYTE_OPS | _SIDD_CMP_EQUAL_ANY | _SIDD_BIT_MASK);
+	return _mm_cvtsi128_si32(result_individual_bytes);
+}
+
+ZEND_NO_SANITIZE_ADDRESS
+ZEND_ATTRIBUTE_UNUSED /* clang mistakenly warns about this */
+static php_json_compute_escape_intersection_t resolve_json_escape_intersection(void) {
+	if (zend_cpu_supports_sse42()) {
+		return php_json_sse42_compute_escape_intersection_real;
+	}
+	return NULL/*php_json_sse42_compute_escape_intersection_fallback*/; // TODO: implement this fallback
 }
 #endif
 
@@ -483,7 +508,7 @@ zend_result php_json_escape_string(
 
 	pos = 0;
 
-#ifdef ZEND_INTRIN_SSE4_2_NATIVE
+#if defined(ZEND_INTRIN_SSE4_2_NATIVE) || defined(ZEND_INTRIN_SSE4_2_FUNC_PROTO)
 	const __m128i sse_escape_mask = php_json_create_sse_escape_mask(options);
 #endif
 
@@ -504,9 +529,10 @@ zend_result php_json_escape_string(
 				max_shift = zend_ulong_ntz(input_range_mask);
 			}
 
-#ifdef ZEND_INTRIN_SSE4_2_NATIVE /* TODO: resolver support */
-			const __m128i result_individual_bytes = _mm_cmpistrm(sse_escape_mask, input, _SIDD_SBYTE_OPS | _SIDD_CMP_EQUAL_ANY | _SIDD_BIT_MASK);
-			int mask = _mm_cvtsi128_si32(result_individual_bytes);
+#ifdef ZEND_INTRIN_SSE4_2_NATIVE
+			int mask = php_json_sse42_compute_escape_intersection_real(sse_escape_mask, input);
+#elif defined(ZEND_INTRIN_SSE4_2_FUNC_PROTO)
+			int mask = php_json_sse42_compute_escape_intersection(sse_escape_mask, input);
 #else
 			const __m128i result_34 = _mm_cmpeq_epi8(input, _mm_set1_epi8('"'));
 			const __m128i result_38 = _mm_cmpeq_epi8(input, _mm_set1_epi8('&'));
