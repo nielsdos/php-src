@@ -540,7 +540,7 @@ zend_result php_json_escape_string(
 
 					pos += len;
 					us = (unsigned char)s[pos];
-					s += pos + 1; /* skip 'us' */
+					s += pos + 1; /* skip 'us' too */
 					pos = 0;
 
 					bool handled = php_json_printable_ascii_escape(buf, us, options);
