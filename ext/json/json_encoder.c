@@ -523,7 +523,7 @@ zend_result php_json_escape_string(
 			/* signed compare, so checks for unsigned ASCII >= 0x80 as well */
 			const __m128i input_range = _mm_cmplt_epi8(input, _mm_set1_epi8(32));
 
-			int max_shift = 16;
+			int max_shift = sizeof(__m128i);
 
 			int input_range_mask = _mm_movemask_epi8(input_range);
 			if (input_range_mask != 0) {
@@ -554,7 +554,7 @@ zend_result php_json_escape_string(
 			int mask = _mm_movemask_epi8(result_individual_bytes);
 #endif
 			if (mask != 0) {
-				if (max_shift < 16) {
+				if (max_shift < sizeof(__m128i)) {
 					int shift = zend_ulong_ntz(mask); /* first offending character */
 					pos += MIN(max_shift, shift);
 					len -= MIN(max_shift, shift);
@@ -580,9 +580,9 @@ zend_result php_json_escape_string(
 					ZEND_ASSERT(handled == true);
 				} while (mask != 0);
 
-				pos = 16 - (s - s_backup);
+				pos = sizeof(__m128i) - (s - s_backup);
 			} else {
-				if (max_shift < 16) {
+				if (max_shift < sizeof(__m128i)) {
 					pos += max_shift;
 					len -= max_shift;
 					break;
