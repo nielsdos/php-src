@@ -520,6 +520,7 @@ zend_result php_json_escape_string(
 #ifdef __SSE2__
 		while (len >= sizeof(__m128i)) {
 			const __m128i input = _mm_loadu_si128((__m128i *) (s + pos));
+			/* signed compare, so checks for unsigned ASCII >= 0x80 as well */
 			const __m128i input_range = _mm_cmplt_epi8(input, _mm_set1_epi8(32));
 
 			int max_shift = 16;
@@ -559,25 +560,26 @@ zend_result php_json_escape_string(
 					len -= MIN(max_shift, shift);
 					break;
 				}
+
 				int shift = zend_ulong_nlz(mask) - 16 - (SIZEOF_ZEND_LONG == 8 ? 32 : 0); /* skips over everything */
+				smart_str_appendl(buf, s, pos);
+				s += pos;
+				pos = shift;
+
 				do {
 					/* Note that we shift the input forward, so we have to shift the mask as well,
 					 * beyond the to-be-escaped character */
 					int len = zend_ulong_ntz(mask);
 					mask >>= len + 1;
 
-					smart_str_appendl(buf, s, len + pos);
+					smart_str_appendl(buf, s, len);
 
-					pos += len;
-					us = (unsigned char)s[pos];
-					s += pos + 1; /* skip 'us' too */
-					pos = 0;
+					us = (unsigned char)s[len];
+					s += len + 1; /* skip 'us' too */
 
 					bool handled = php_json_printable_ascii_escape(buf, us, options);
 					ZEND_ASSERT(handled == true);
 				} while (mask != 0);
-
-				pos += shift;
 			} else {
 				if (max_shift < 16) {
 					pos += max_shift;
