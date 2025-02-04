@@ -602,17 +602,23 @@ zend_result php_json_escape_string(
 			pos++;
 			len--;
 		} else {
-			if (pos) {
-				smart_str_appendl(buf, s, pos);
-				s += pos;
-				pos = 0;
-			}
 			if (UNEXPECTED(us >= 0x80)) {
 				zend_result status;
-				us = php_next_utf8_char((unsigned char *)s, len, &pos, &status);
+				size_t pos_old = pos;
+				const char *cur = s+pos;
+				pos = 0;
+				us = php_next_utf8_char((unsigned char *)cur, len, &pos, &status);
+				pos += pos_old;
+				len -= pos - pos_old;
 
 				/* check whether UTF8 character is correct */
 				if (UNEXPECTED(status != SUCCESS)) {
+					if (pos_old && (options & (PHP_JSON_INVALID_UTF8_IGNORE|PHP_JSON_INVALID_UTF8_SUBSTITUTE))) {
+						smart_str_appendl(buf, s, pos_old);
+						s += pos;
+						pos = 0;
+					}
+
 					if (options & PHP_JSON_INVALID_UTF8_IGNORE) {
 						/* ignore invalid UTF8 character */
 					} else if (options & PHP_JSON_INVALID_UTF8_SUBSTITUTE) {
@@ -637,8 +643,14 @@ zend_result php_json_escape_string(
 				} else if ((options & PHP_JSON_UNESCAPED_UNICODE)
 				    && ((options & PHP_JSON_UNESCAPED_LINE_TERMINATORS)
 						|| us < 0x2028 || us > 0x2029)) {
-					smart_str_appendl(buf, s, pos);
+					/* No need to emit any bytes, just move the cursor. */
 				} else {
+					if (pos_old) {
+						smart_str_appendl(buf, s, pos_old);
+					}
+					s += pos;
+					pos = 0;
+
 					/* From http://en.wikipedia.org/wiki/UTF16 */
 					if (us >= 0x10000) {
 						unsigned int next_us;
@@ -663,10 +675,12 @@ zend_result php_json_escape_string(
 					dst[4] = digits[(us >> 4) & 0xf];
 					dst[5] = digits[us & 0xf];
 				}
-				s += pos;
-				len -= pos;
-				pos = 0;
 			} else {
+				if (pos) {
+					smart_str_appendl(buf, s, pos);
+					s += pos;
+					pos = 0;
+				}
 				s++;
 				switch (us) {
 					case '\b':
