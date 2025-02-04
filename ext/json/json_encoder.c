@@ -561,10 +561,9 @@ zend_result php_json_escape_string(
 					break;
 				}
 
-				int shift = zend_ulong_nlz(mask) - 16 - (SIZEOF_ZEND_LONG == 8 ? 32 : 0); /* skips over everything */
 				smart_str_appendl(buf, s, pos);
 				s += pos;
-				pos = shift;
+				const char *s_backup = s;
 
 				do {
 					/* Note that we shift the input forward, so we have to shift the mask as well,
@@ -580,6 +579,8 @@ zend_result php_json_escape_string(
 					bool handled = php_json_printable_ascii_escape(buf, us, options);
 					ZEND_ASSERT(handled == true);
 				} while (mask != 0);
+
+				pos = 16 - (s - s_backup);
 			} else {
 				if (max_shift < 16) {
 					pos += max_shift;
