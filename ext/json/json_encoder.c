@@ -522,11 +522,9 @@ zend_result php_json_escape_string(
 			const __m128i input = _mm_loadu_si128((__m128i *) (s + pos));
 			const __m128i input_range = _mm_cmplt_epi8(input, _mm_set1_epi8(32));
 
-			int max_shift = 16;
-
 			int input_range_mask = _mm_movemask_epi8(input_range);
 			if (input_range_mask != 0) {
-				max_shift = zend_ulong_ntz(input_range_mask);
+				break;
 			}
 
 #ifdef ZEND_INTRIN_SSE4_2_NATIVE
@@ -553,12 +551,6 @@ zend_result php_json_escape_string(
 			int mask = _mm_movemask_epi8(result_individual_bytes);
 #endif
 			if (mask != 0) {
-				if (max_shift < 16) {
-					int shift = zend_ulong_ntz(mask); /* first offending character */
-					pos += MIN(max_shift, shift);
-					len -= MIN(max_shift, shift);
-					break;
-				}
 				int shift = zend_ulong_nlz(mask) - 16 - (SIZEOF_ZEND_LONG == 8 ? 32 : 0); /* skips over everything */
 				do {
 					/* Note that we shift the input forward, so we have to shift the mask as well,
@@ -579,11 +571,6 @@ zend_result php_json_escape_string(
 
 				pos += shift;
 			} else {
-				if (max_shift < 16) {
-					pos += max_shift;
-					len -= max_shift;
-					break;
-				}
 				pos += sizeof(__m128i);
 			}
 
