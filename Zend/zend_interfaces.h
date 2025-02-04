@@ -75,6 +75,7 @@ ZEND_API int zend_user_serialize(zval *object, unsigned char **buffer, size_t *b
 ZEND_API int zend_user_unserialize(zval *object, zend_class_entry *ce, const unsigned char *buf, size_t buf_len, zend_unserialize_data *data);
 
 ZEND_API zend_result zend_create_internal_iterator_zval(zval *return_value, zval *obj);
+ZEND_API void zend_create_internal_iterator_iter(zval *return_value, zend_object_iterator *iter);
 
 END_EXTERN_C()
 
