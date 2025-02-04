@@ -528,6 +528,10 @@ zend_result php_json_escape_string(
 			int input_range_mask = _mm_movemask_epi8(input_range);
 			if (input_range_mask != 0) {
 				max_shift = zend_ulong_ntz(input_range_mask);
+				if (max_shift <= 1) {
+					/* not worth it */
+					break;
+				}
 			}
 
 #ifdef ZEND_INTRIN_SSE4_2_NATIVE
