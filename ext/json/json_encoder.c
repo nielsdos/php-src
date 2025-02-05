@@ -374,32 +374,43 @@ static zend_result php_json_encode_array(smart_str *buf, zval *val, int options,
 }
 /* }}} */
 
+/* Outlined smart_str_appendl() to avoid performance loss due to code bloat */
+// TODO: now I don't outline it anymore...
+static void php_json_append(smart_str *dest, const char *src, size_t len)
+{
+	/* smart_str has a minimum size of the input length,
+	 * this avoids generating initial allocation code */
+	ZEND_ASSERT(dest->s);
+
+	smart_str_appendl(dest, src, len);
+}
+
 static zend_always_inline bool php_json_printable_ascii_escape(smart_str *buf, unsigned char us, int options)
 {
 	switch (us) {
 		case '"':
 			if (options & PHP_JSON_HEX_QUOT) {
-				smart_str_appendl(buf, "\\u0022", 6);
+				php_json_append(buf, "\\u0022", 6);
 			} else {
-				smart_str_appendl(buf, "\\\"", 2);
+				php_json_append(buf, "\\\"", 2);
 			}
 			break;
 
 		case '\\':
-			smart_str_appendl(buf, "\\\\", 2);
+			php_json_append(buf, "\\\\", 2);
 			break;
 
 		case '/':
 			if (options & PHP_JSON_UNESCAPED_SLASHES) {
 				smart_str_appendc(buf, '/');
 			} else {
-				smart_str_appendl(buf, "\\/", 2);
+				php_json_append(buf, "\\/", 2);
 			}
 			break;
 
 		case '<':
 			if (options & PHP_JSON_HEX_TAG) {
-				smart_str_appendl(buf, "\\u003C", 6);
+				php_json_append(buf, "\\u003C", 6);
 			} else {
 				smart_str_appendc(buf, '<');
 			}
@@ -407,7 +418,7 @@ static zend_always_inline bool php_json_printable_ascii_escape(smart_str *buf, u
 
 		case '>':
 			if (options & PHP_JSON_HEX_TAG) {
-				smart_str_appendl(buf, "\\u003E", 6);
+				php_json_append(buf, "\\u003E", 6);
 			} else {
 				smart_str_appendc(buf, '>');
 			}
@@ -415,7 +426,7 @@ static zend_always_inline bool php_json_printable_ascii_escape(smart_str *buf, u
 
 		case '&':
 			if (options & PHP_JSON_HEX_AMP) {
-				smart_str_appendl(buf, "\\u0026", 6);
+				php_json_append(buf, "\\u0026", 6);
 			} else {
 				smart_str_appendc(buf, '&');
 			}
@@ -423,7 +434,7 @@ static zend_always_inline bool php_json_printable_ascii_escape(smart_str *buf, u
 
 		case '\'':
 			if (options & PHP_JSON_HEX_APOS) {
-				smart_str_appendl(buf, "\\u0027", 6);
+				php_json_append(buf, "\\u0027", 6);
 			} else {
 				smart_str_appendc(buf, '\'');
 			}
@@ -436,16 +447,63 @@ static zend_always_inline bool php_json_printable_ascii_escape(smart_str *buf, u
 	return true;
 }
 
+#ifdef __SSE2__
+static zend_always_inline int php_json_sse2_compute_escape_intersection(const __m128i mask, const __m128i input)
+{
+	(void) mask;
+
+	const __m128i result_34 = _mm_cmpeq_epi8(input, _mm_set1_epi8('"'));
+	const __m128i result_38 = _mm_cmpeq_epi8(input, _mm_set1_epi8('&'));
+	const __m128i result_39 = _mm_cmpeq_epi8(input, _mm_set1_epi8('\''));
+	const __m128i result_47 = _mm_cmpeq_epi8(input, _mm_set1_epi8('/'));
+	const __m128i result_60 = _mm_cmpeq_epi8(input, _mm_set1_epi8('<'));
+	const __m128i result_62 = _mm_cmpeq_epi8(input, _mm_set1_epi8('>'));
+	const __m128i result_92 = _mm_cmpeq_epi8(input, _mm_set1_epi8('\\'));
+
+	const __m128i result_34_38 = _mm_or_si128(result_34, result_38);
+	const __m128i result_39_47 = _mm_or_si128(result_39, result_47);
+	const __m128i result_60_62 = _mm_or_si128(result_60, result_62);
+
+	const __m128i result_34_38_39_47 = _mm_or_si128(result_34_38, result_39_47);
+	const __m128i result_60_62_92 = _mm_or_si128(result_60_62, result_92);
+
+	const __m128i result_individual_bytes = _mm_or_si128(result_34_38_39_47, result_60_62_92);
+	return _mm_movemask_epi8(result_individual_bytes);
+}
+#endif
+
 #if defined(ZEND_INTRIN_SSE4_2_NATIVE) || defined(ZEND_INTRIN_SSE4_2_FUNC_PROTO)
+static const char php_json_escape_noslashes_lut[2][8][16] = {
+	/* !PHP_JSON_UNESCAPED_SLASHES */
+	{
+		[0] = {'"', '\\', '/', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		[PHP_JSON_HEX_AMP] = {'"', '\\', '&', '/', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		[PHP_JSON_HEX_APOS] = {'"', '\\', '\'', '/', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		[PHP_JSON_HEX_AMP|PHP_JSON_HEX_APOS] = {'"', '\\', '&', '\'', '/', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		[PHP_JSON_HEX_TAG] = {'"', '\\', '<', '>', '/', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		[PHP_JSON_HEX_AMP|PHP_JSON_HEX_TAG] = {'"', '\\', '&', '<', '>', '/', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		[PHP_JSON_HEX_APOS|PHP_JSON_HEX_TAG] = {'"', '\\', '\'', '<', '>', '/', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		[PHP_JSON_HEX_AMP|PHP_JSON_HEX_APOS|PHP_JSON_HEX_TAG] = {'"', '\\', '&', '\'', '<', '>', '/', 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	},
+
+	/* PHP_JSON_UNESCAPED_SLASHES */
+	{
+		[0] = {'"', '\\', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		[PHP_JSON_HEX_AMP] = {'"', '\\', '&', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		[PHP_JSON_HEX_APOS] = {'"', '\\', '\'', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		[PHP_JSON_HEX_AMP|PHP_JSON_HEX_APOS] = {'"', '\\', '&', '\'', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		[PHP_JSON_HEX_TAG] = {'"', '\\', '<', '>', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		[PHP_JSON_HEX_AMP|PHP_JSON_HEX_TAG] = {'"', '\\', '&', '<', '>', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		[PHP_JSON_HEX_APOS|PHP_JSON_HEX_TAG] = {'"', '\\', '\'', '<', '>', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		[PHP_JSON_HEX_AMP|PHP_JSON_HEX_APOS|PHP_JSON_HEX_TAG] = {'"', '\\', '&', '\'', '<', '>', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	}
+};
+
 static zend_always_inline __m128i php_json_create_sse_escape_mask(int options)
 {
-	const char sentinel = 1; /* outside of the printable range, so no false matches are possible */
-	const char amp = (options & PHP_JSON_HEX_AMP) ? '&' : sentinel;
-	const char apos = (options & PHP_JSON_HEX_APOS) ? '\'' : sentinel;
-	const char slash = !(options & PHP_JSON_UNESCAPED_SLASHES) ? '/' : sentinel;
-	const char tag1 = (options & PHP_JSON_HEX_TAG) ? '<' : sentinel;
-	const char tag2 = (options & PHP_JSON_HEX_TAG) ? '>' : sentinel;
-	return _mm_setr_epi8('"', amp, apos, slash, tag1, tag2, '\\', 0, 0, 0, 0, 0, 0, 0, 0, 0);
+	const int slashes = (options & PHP_JSON_UNESCAPED_SLASHES) ? 1 : 0;
+	const int masked = options & (PHP_JSON_HEX_AMP|PHP_JSON_HEX_APOS|PHP_JSON_HEX_TAG);
+	return *(const __m128i *) &php_json_escape_noslashes_lut[slashes][masked];
 }
 
 ZEND_INTRIN_SSE4_2_FUNC_DECL(int php_json_sse42_compute_escape_intersection_real(const __m128i mask, const __m128i input));
@@ -467,7 +525,7 @@ static php_json_compute_escape_intersection_t resolve_json_escape_intersection(v
 	if (zend_cpu_supports_sse42()) {
 		return php_json_sse42_compute_escape_intersection_real;
 	}
-	return NULL/*php_json_sse42_compute_escape_intersection_fallback*/; // TODO: implement this fallback
+	return php_json_sse2_compute_escape_intersection;
 }
 #endif
 
@@ -500,10 +558,10 @@ zend_result php_json_escape_string(
 		}
 
 	}
-	checkpoint = buf->s ? ZSTR_LEN(buf->s) : 0;
 
 	/* pre-allocate for string length plus 2 quotes */
 	smart_str_alloc(buf, len+2, 0);
+	checkpoint = ZSTR_LEN(buf->s);
 	smart_str_appendc(buf, '"');
 
 	pos = 0;
@@ -520,7 +578,7 @@ zend_result php_json_escape_string(
 #ifdef __SSE2__
 		while (len >= sizeof(__m128i)) {
 			const __m128i input = _mm_loadu_si128((__m128i *) (s + pos));
-			/* signed compare, so checks for unsigned ASCII >= 0x80 as well */
+			/* signed compare, so checks for unsigned bytes >= 0x80 as well */
 			const __m128i input_range = _mm_cmplt_epi8(input, _mm_set1_epi8(32));
 
 			int max_shift = sizeof(__m128i);
@@ -539,23 +597,7 @@ zend_result php_json_escape_string(
 #elif defined(ZEND_INTRIN_SSE4_2_FUNC_PROTO)
 			int mask = php_json_sse42_compute_escape_intersection(sse_escape_mask, input);
 #else
-			const __m128i result_34 = _mm_cmpeq_epi8(input, _mm_set1_epi8('"'));
-			const __m128i result_38 = _mm_cmpeq_epi8(input, _mm_set1_epi8('&'));
-			const __m128i result_39 = _mm_cmpeq_epi8(input, _mm_set1_epi8('\''));
-			const __m128i result_47 = _mm_cmpeq_epi8(input, _mm_set1_epi8('/'));
-			const __m128i result_60 = _mm_cmpeq_epi8(input, _mm_set1_epi8('<'));
-			const __m128i result_62 = _mm_cmpeq_epi8(input, _mm_set1_epi8('>'));
-			const __m128i result_92 = _mm_cmpeq_epi8(input, _mm_set1_epi8('\\'));
-
-			const __m128i result_34_38 = _mm_or_si128(result_34, result_38);
-			const __m128i result_39_47 = _mm_or_si128(result_39, result_47);
-			const __m128i result_60_62 = _mm_or_si128(result_60, result_62);
-
-			const __m128i result_34_38_39_47 = _mm_or_si128(result_34_38, result_39_47);
-			const __m128i result_60_62_92 = _mm_or_si128(result_60_62, result_92);
-
-			const __m128i result_individual_bytes = _mm_or_si128(result_34_38_39_47, result_60_62_92);
-			int mask = _mm_movemask_epi8(result_individual_bytes);
+			int mask = php_json_sse2_compute_escape_intersection(_mm_setzero_si128(), input);
 #endif
 			if (mask != 0) {
 				if (max_shift < sizeof(__m128i)) {
@@ -565,7 +607,7 @@ zend_result php_json_escape_string(
 					break;
 				}
 
-				smart_str_appendl(buf, s, pos);
+				php_json_append(buf, s, pos);
 				s += pos;
 				const char *s_backup = s;
 
@@ -575,7 +617,7 @@ zend_result php_json_escape_string(
 					int len = zend_ulong_ntz(mask);
 					mask >>= len + 1;
 
-					smart_str_appendl(buf, s, len);
+					php_json_append(buf, s, len);
 
 					us = (unsigned char)s[len];
 					s += len + 1; /* skip 'us' too */
@@ -610,16 +652,16 @@ zend_result php_json_escape_string(
 			if (UNEXPECTED(us >= 0x80)) {
 				zend_result status;
 				size_t pos_old = pos;
-				const char *cur = s+pos;
+				const char *cur = s + pos;
 				pos = 0;
 				us = php_next_utf8_char((unsigned char *)cur, len, &pos, &status);
 				pos += pos_old;
 				len -= pos - pos_old;
 
 				/* check whether UTF8 character is correct */
-				if (UNEXPECTED(status != SUCCESS)) {
+				if (UNEXPECTED(!us)) {
 					if (pos_old && (options & (PHP_JSON_INVALID_UTF8_IGNORE|PHP_JSON_INVALID_UTF8_SUBSTITUTE))) {
-						smart_str_appendl(buf, s, pos_old);
+						php_json_append(buf, s, pos_old);
 						s += pos;
 						pos = 0;
 					}
@@ -629,15 +671,15 @@ zend_result php_json_escape_string(
 					} else if (options & PHP_JSON_INVALID_UTF8_SUBSTITUTE) {
 						/* Use Unicode character 'REPLACEMENT CHARACTER' (U+FFFD) */
 						if (options & PHP_JSON_UNESCAPED_UNICODE) {
-							smart_str_appendl(buf, "\xef\xbf\xbd", 3);
+							php_json_append(buf, "\xef\xbf\xbd", 3);
 						} else {
-							smart_str_appendl(buf, "\\ufffd", 6);
+							php_json_append(buf, "\\ufffd", 6);
 						}
 					} else {
 						ZSTR_LEN(buf->s) = checkpoint;
 						encoder->error_code = PHP_JSON_ERROR_UTF8;
 						if (options & PHP_JSON_PARTIAL_OUTPUT_ON_ERROR) {
-							smart_str_appendl(buf, "null", 4);
+							php_json_append(buf, "null", 4);
 						}
 						return FAILURE;
 					}
@@ -651,7 +693,7 @@ zend_result php_json_escape_string(
 					/* No need to emit any bytes, just move the cursor. */
 				} else {
 					if (pos_old) {
-						smart_str_appendl(buf, s, pos_old);
+						php_json_append(buf, s, pos_old);
 					}
 					s += pos;
 					pos = 0;
@@ -682,30 +724,30 @@ zend_result php_json_escape_string(
 				}
 			} else {
 				if (pos) {
-					smart_str_appendl(buf, s, pos);
+					php_json_append(buf, s, pos);
 					s += pos;
 					pos = 0;
 				}
 				s++;
 				switch (us) {
 					case '\b':
-						smart_str_appendl(buf, "\\b", 2);
+						php_json_append(buf, "\\b", 2);
 						break;
 
 					case '\f':
-						smart_str_appendl(buf, "\\f", 2);
+						php_json_append(buf, "\\f", 2);
 						break;
 
 					case '\n':
-						smart_str_appendl(buf, "\\n", 2);
+						php_json_append(buf, "\\n", 2);
 						break;
 
 					case '\r':
-						smart_str_appendl(buf, "\\r", 2);
+						php_json_append(buf, "\\r", 2);
 						break;
 
 					case '\t':
-						smart_str_appendl(buf, "\\t", 2);
+						php_json_append(buf, "\\t", 2);
 						break;
 
 					default:
@@ -727,7 +769,7 @@ zend_result php_json_escape_string(
 	} while (len);
 
 	if (pos) {
-		smart_str_appendl(buf, s, pos);
+		php_json_append(buf, s, pos);
 	}
 
 	smart_str_appendc(buf, '"');
