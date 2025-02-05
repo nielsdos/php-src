@@ -601,7 +601,7 @@ zend_result php_json_escape_string(
 			int mask = php_json_sse2_compute_escape_intersection(_mm_setzero_si128(), input);
 #endif
 			if (mask != 0) {
-				if (max_shift < sizeof(__m128i)) {
+				if (UNEXPECTED(max_shift < sizeof(__m128i))) {
 					int shift = zend_ulong_ntz(mask); /* first offending character */
 					pos += MIN(max_shift, shift);
 					len -= MIN(max_shift, shift);
