@@ -374,8 +374,7 @@ static zend_result php_json_encode_array(smart_str *buf, zval *val, int options,
 }
 /* }}} */
 
-/* Outlined smart_str_appendl() to avoid performance loss due to code bloat */
-// TODO: now I don't outline it anymore...
+/* Specialization of smart_str_appendl() to avoid performance loss due to code bloat */
 static zend_always_inline void php_json_append(smart_str *dest, const char *src, size_t len)
 {
 	/* smart_str has a minimum size of the input length,
@@ -387,6 +386,8 @@ static zend_always_inline void php_json_append(smart_str *dest, const char *src,
 
 static zend_always_inline bool php_json_printable_ascii_escape(smart_str *buf, unsigned char us, int options)
 {
+	ZEND_ASSERT(buf->s);
+
 	switch (us) {
 		case '"':
 			if (options & PHP_JSON_HEX_QUOT) {
