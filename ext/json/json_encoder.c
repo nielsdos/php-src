@@ -376,7 +376,7 @@ static zend_result php_json_encode_array(smart_str *buf, zval *val, int options,
 
 /* Outlined smart_str_appendl() to avoid performance loss due to code bloat */
 // TODO: now I don't outline it anymore...
-static void php_json_append(smart_str *dest, const char *src, size_t len)
+static zend_always_inline void php_json_append(smart_str *dest, const char *src, size_t len)
 {
 	/* smart_str has a minimum size of the input length,
 	 * this avoids generating initial allocation code */
