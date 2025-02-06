@@ -379,7 +379,7 @@ static zend_result php_json_encode_array(smart_str *buf, zval *val, int options,
 /* }}} */
 
 /* Specialization of smart_str_appendl() to avoid performance loss due to code bloat */
-static void php_json_append(smart_str *dest, const char *src, size_t len)
+static zend_always_inline void php_json_append(smart_str *dest, const char *src, size_t len)
 {
 	/* smart_str has a minimum size of the input length,
 	 * this avoids generating initial allocation code */
@@ -688,8 +688,8 @@ zend_result php_json_escape_string(
 				const char *cur = s + pos;
 				pos = 0;
 				us = php_next_utf8_char((unsigned char *)cur, len, &pos, &status);
+				len -= pos;
 				pos += pos_old;
-				len -= pos - pos_old;
 
 				/* check whether UTF8 character is correct */
 				if (UNEXPECTED(!us)) {
@@ -807,6 +807,7 @@ zend_result php_json_escape_string(
 		php_json_append(buf, s, pos);
 	}
 
+	ZEND_ASSERT(buf->s);
 	smart_str_appendc(buf, '"');
 
 	return SUCCESS;
