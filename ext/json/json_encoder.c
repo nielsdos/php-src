@@ -585,11 +585,14 @@ static zend_always_inline php_json_simd_result php_json_process_simd_block(
 			*s += *pos;
 			const char *s_backup = *s;
 
+			/* It's more important to keep this loop tight than to optimize this with
+			 * a trailing zero count. */
 			for (; mask; mask >>= 1, *s += 1) {
 				if (UNEXPECTED(mask & 1)) {
 					bool handled = php_json_printable_ascii_escape(buf, (*s)[0], options);
 					ZEND_ASSERT(handled);
 				} else {
+					ZEND_ASSERT(buf->s);
 					smart_str_appendc(buf, (*s)[0]);
 				}
 			}
