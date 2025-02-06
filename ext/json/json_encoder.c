@@ -651,6 +651,8 @@ zend_result php_json_escape_string(
 
 #if defined(ZEND_INTRIN_SSE4_2_NATIVE) || defined(ZEND_INTRIN_SSE4_2_FUNC_PROTO)
 	const __m128i sse_escape_mask = php_json_create_sse_escape_mask(options);
+#elif defined(JSON_USE_SIMD)
+	const __m128i sse_escape_mask = _mm_setzero_si128();
 #endif
 
 	do {
