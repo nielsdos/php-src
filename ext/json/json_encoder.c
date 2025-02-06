@@ -381,7 +381,7 @@ static zend_result php_json_encode_array(smart_str *buf, zval *val, int options,
 /* Specialization of smart_str_appendl() to avoid performance loss due to code bloat */
 static zend_always_inline void php_json_append(smart_str *dest, const char *src, size_t len)
 {
-	/* smart_str has a minimum size of the input length,
+	/* dest has a minimum size of the input length,
 	 * this avoids generating initial allocation code */
 	ZEND_ASSERT(dest->s);
 
@@ -720,9 +720,7 @@ zend_result php_json_escape_string(
 						|| us < 0x2028 || us > 0x2029)) {
 					/* No need to emit any bytes, just move the cursor. */
 				} else {
-					if (pos_old) {
-						php_json_append(buf, s, pos_old);
-					}
+					php_json_append(buf, s, pos_old);
 					s += pos;
 					pos = 0;
 
