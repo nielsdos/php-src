@@ -678,7 +678,7 @@ zend_result php_json_escape_string(
 #endif
 
 		us = (unsigned char)s[pos];
-		if (EXPECTED(result != PHP_JSON_NON_ASCII && !ZEND_BIT_TEST(charmap, us))) {
+		if (result != PHP_JSON_NON_ASCII && EXPECTED(!ZEND_BIT_TEST(charmap, us))) {
 			pos++;
 			len--;
 		} else {
@@ -695,9 +695,9 @@ zend_result php_json_escape_string(
 				if (UNEXPECTED(!us)) {
 					if (pos_old && (options & (PHP_JSON_INVALID_UTF8_IGNORE|PHP_JSON_INVALID_UTF8_SUBSTITUTE))) {
 						php_json_append(buf, s, pos_old);
-						s += pos;
-						pos = 0;
 					}
+					s += pos;
+					pos = 0;
 
 					if (options & PHP_JSON_INVALID_UTF8_IGNORE) {
 						/* ignore invalid UTF8 character */
