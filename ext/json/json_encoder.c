@@ -38,6 +38,10 @@
 # include "zend_cpuinfo.h"
 #endif
 
+#ifdef __SSE2__
+# define JSON_USE_SIMD
+#endif
+
 static const char digits[] = "0123456789abcdef";
 
 static zend_always_inline bool php_json_check_stack_limit(void)
@@ -448,7 +452,7 @@ static zend_always_inline bool php_json_printable_ascii_escape(smart_str *buf, u
 	return true;
 }
 
-#ifdef __SSE2__
+#ifdef JSON_USE_SIMD
 static zend_always_inline int php_json_sse2_compute_escape_intersection(const __m128i mask, const __m128i input)
 {
 	(void) mask;
@@ -576,7 +580,7 @@ zend_result php_json_escape_string(
 			0xffffffff, 0x500080c4, 0x10000000, 0x00000000,
 			0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff};
 
-#ifdef __SSE2__
+#ifdef JSON_USE_SIMD
 		while (len >= sizeof(__m128i)) {
 			const __m128i input = _mm_loadu_si128((__m128i *) (s + pos));
 			/* signed compare, so checks for unsigned bytes >= 0x80 as well */
