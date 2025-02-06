@@ -587,8 +587,19 @@ static zend_always_inline php_json_simd_result php_json_process_simd_block(
 
 			do {
 				/* Note that we shift the input forward, so we have to shift the mask as well,
-					* beyond the to-be-escaped character */
+				 * beyond the to-be-escaped character */
 				int len = zend_ulong_ntz(mask);
+#if 1
+				mask >>= len + 1;
+
+				php_json_append(buf, *s, len);
+
+				unsigned char us = (unsigned char)(*s)[len];
+				*s += len + 1; /* skip 'us' too */
+
+				bool handled = php_json_printable_ascii_escape(buf, us, options);
+				ZEND_ASSERT(handled == true);
+#else
 				mask >>= len;
 
 				php_json_append(buf, *s, len);
@@ -602,6 +613,7 @@ static zend_always_inline php_json_simd_result php_json_process_simd_block(
 					bool handled = php_json_printable_ascii_escape(buf, us, options);
 					ZEND_ASSERT(handled == true);
 				} while ((mask >>= 1) & 1);
+#endif
 			} while (mask != 0);
 
 			*pos = sizeof(__m128i) - (*s - s_backup);
