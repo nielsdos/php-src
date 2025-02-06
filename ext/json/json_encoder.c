@@ -379,7 +379,7 @@ static zend_result php_json_encode_array(smart_str *buf, zval *val, int options,
 /* }}} */
 
 /* Specialization of smart_str_appendl() to avoid performance loss due to code bloat */
-static zend_always_inline void php_json_append(smart_str *dest, const char *src, size_t len)
+static void php_json_append(smart_str *dest, const char *src, size_t len)
 {
 	/* smart_str has a minimum size of the input length,
 	 * this avoids generating initial allocation code */
@@ -542,7 +542,12 @@ typedef enum php_json_simd_result {
 } php_json_simd_result;
 
 static zend_always_inline php_json_simd_result php_json_process_simd_block(
-	smart_str *buf, const __m128i sse_escape_mask, const char **s, size_t *pos, size_t *len, int options
+	smart_str *buf,
+	const __m128i sse_escape_mask,
+	const char **s,
+	size_t *restrict pos,
+	size_t *restrict len,
+	int options
 )
 {
 	while (*len >= sizeof(__m128i)) {
@@ -584,20 +589,24 @@ static zend_always_inline php_json_simd_result php_json_process_simd_block(
 				/* Note that we shift the input forward, so we have to shift the mask as well,
 					* beyond the to-be-escaped character */
 				int len = zend_ulong_ntz(mask);
-				mask >>= len + 1;
+				mask >>= len;
 
 				php_json_append(buf, *s, len);
 
-				unsigned char us = (unsigned char)(*s)[len];
-				*s += len + 1; /* skip 'us' too */
+				*s += len; /* skip 'us' too */
 
-				bool handled = php_json_printable_ascii_escape(buf, us, options);
-				ZEND_ASSERT(handled == true);
+				/* Mitigate long run performance */
+				do {
+					unsigned char us = (unsigned char)(*s)[0];
+					(*s)++;
+					bool handled = php_json_printable_ascii_escape(buf, us, options);
+					ZEND_ASSERT(handled == true);
+				} while ((mask >>= 1) & 1);
 			} while (mask != 0);
 
 			*pos = sizeof(__m128i) - (*s - s_backup);
 		} else {
-			if (UNEXPECTED(max_shift < sizeof(__m128i))) {
+			if (/*UNEXPECTED*/(max_shift < sizeof(__m128i))) {
 				*pos += max_shift;
 				*len -= max_shift;
 				return PHP_JSON_SLOW;
@@ -608,7 +617,7 @@ static zend_always_inline php_json_simd_result php_json_process_simd_block(
 		*len -= sizeof(__m128i);
 	}
 
-	return !*len ? PHP_JSON_STOP : PHP_JSON_SLOW;
+	return UNEXPECTED(!*len) ? PHP_JSON_STOP : PHP_JSON_SLOW;
 }
 #endif
 
@@ -660,8 +669,9 @@ zend_result php_json_escape_string(
 			0xffffffff, 0x500080c4, 0x10000000, 0x00000000,
 			0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff};
 
+		php_json_simd_result result = PHP_JSON_SLOW;
 #ifdef JSON_USE_SIMD
-		php_json_simd_result result = php_json_process_simd_block(buf, sse_escape_mask, &s, &pos, &len, options);
+		result = php_json_process_simd_block(buf, sse_escape_mask, &s, &pos, &len, options);
 		if (UNEXPECTED(result == PHP_JSON_STOP)) {
 			break;
 		}
@@ -720,6 +730,8 @@ zend_result php_json_escape_string(
 					}
 					s += pos;
 					pos = 0;
+
+					ZEND_ASSERT(buf->s);
 
 					/* From http://en.wikipedia.org/wiki/UTF16 */
 					if (us >= 0x10000) {
