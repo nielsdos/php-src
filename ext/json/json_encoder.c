@@ -519,7 +519,7 @@ zend_always_inline int php_json_sse42_compute_escape_intersection_real(const __m
 }
 #endif
 
-#ifdef ZEND_INTRIN_SSE4_2_FUNC_PROTO
+#if defined(JSON_USE_SIMD) && defined(ZEND_INTRIN_SSE4_2_FUNC_PROTO)
 static int php_json_sse42_compute_escape_intersection(const __m128i mask, const __m128i input) __attribute__((ifunc("php_json_resolve_escape_intersection")));
 
 typedef int (*php_json_compute_escape_intersection_t)(const __m128i mask, const __m128i input);
@@ -534,13 +534,13 @@ static php_json_compute_escape_intersection_t php_json_resolve_escape_intersecti
 }
 #endif
 
-#ifdef JSON_USE_SIMD
 typedef enum php_json_simd_result {
 	PHP_JSON_STOP,
 	PHP_JSON_SLOW,
 	PHP_JSON_NON_ASCII,
 } php_json_simd_result;
 
+#ifdef JSON_USE_SIMD
 static zend_always_inline php_json_simd_result php_json_process_simd_block(
 	smart_str *buf,
 	const __m128i sse_escape_mask,
@@ -585,40 +585,18 @@ static zend_always_inline php_json_simd_result php_json_process_simd_block(
 			*s += *pos;
 			const char *s_backup = *s;
 
-			do {
-				/* Note that we shift the input forward, so we have to shift the mask as well,
-				 * beyond the to-be-escaped character */
-				int len = zend_ulong_ntz(mask);
-#if 1
-				mask >>= len + 1;
-
-				php_json_append(buf, *s, len);
-
-				unsigned char us = (unsigned char)(*s)[len];
-				*s += len + 1; /* skip 'us' too */
-
-				bool handled = php_json_printable_ascii_escape(buf, us, options);
-				ZEND_ASSERT(handled == true);
-#else
-				mask >>= len;
-
-				php_json_append(buf, *s, len);
-
-				*s += len; /* skip 'us' too */
-
-				/* Mitigate long run performance */
-				do {
-					unsigned char us = (unsigned char)(*s)[0];
-					(*s)++;
-					bool handled = php_json_printable_ascii_escape(buf, us, options);
-					ZEND_ASSERT(handled == true);
-				} while ((mask >>= 1) & 1);
-#endif
-			} while (mask != 0);
+			for (; mask; mask >>= 1, *s += 1) {
+				if (UNEXPECTED(mask & 1)) {
+					bool handled = php_json_printable_ascii_escape(buf, (*s)[0], options);
+					ZEND_ASSERT(handled);
+				} else {
+					smart_str_appendc(buf, (*s)[0]);
+				}
+			}
 
 			*pos = sizeof(__m128i) - (*s - s_backup);
 		} else {
-			if (/*UNEXPECTED*/(max_shift < sizeof(__m128i))) {
+			if (max_shift < sizeof(__m128i)) {
 				*pos += max_shift;
 				*len -= max_shift;
 				return PHP_JSON_SLOW;
@@ -670,10 +648,12 @@ zend_result php_json_escape_string(
 
 	pos = 0;
 
-#if defined(ZEND_INTRIN_SSE4_2_NATIVE) || defined(ZEND_INTRIN_SSE4_2_FUNC_PROTO)
+#ifdef JSON_USE_SIMD
+# if defined(ZEND_INTRIN_SSE4_2_NATIVE) || defined(ZEND_INTRIN_SSE4_2_FUNC_PROTO)
 	const __m128i sse_escape_mask = php_json_create_sse_escape_mask(options);
-#elif defined(JSON_USE_SIMD)
+# else
 	const __m128i sse_escape_mask = _mm_setzero_si128();
+# endif
 #endif
 
 	do {
