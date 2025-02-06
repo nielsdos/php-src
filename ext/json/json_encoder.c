@@ -539,7 +539,7 @@ typedef enum php_json_simd_result {
 	PHP_JSON_SLOW,
 	PHP_JSON_NON_ASCII,
 } php_json_simd_result;
-
+php_json_compute_escape_intersection_t foo = php_json_sse42_compute_escape_intersection_real;
 #ifdef JSON_USE_SIMD
 static zend_always_inline php_json_simd_result php_json_process_simd_block(
 	smart_str *buf,
@@ -550,6 +550,7 @@ static zend_always_inline php_json_simd_result php_json_process_simd_block(
 	int options
 )
 {
+	const php_json_compute_escape_intersection_t dontchangeme = foo;
 	while (*len >= sizeof(__m128i)) {
 		const __m128i input = _mm_loadu_si128((const __m128i *) (*s + *pos));
 		/* signed compare, so checks for unsigned bytes >= 0x80 as well */
@@ -566,13 +567,14 @@ static zend_always_inline php_json_simd_result php_json_process_simd_block(
 			max_shift = zend_ulong_ntz(input_range_mask);
 		}
 
-#ifdef ZEND_INTRIN_SSE4_2_NATIVE
-		int mask = php_json_sse42_compute_escape_intersection_real(sse_escape_mask, input);
-#elif defined(ZEND_INTRIN_SSE4_2_FUNC_PROTO)
-		int mask = php_json_sse42_compute_escape_intersection(sse_escape_mask, input);
-#else
-		int mask = php_json_sse2_compute_escape_intersection(_mm_setzero_si128(), input);
-#endif
+// #ifdef ZEND_INTRIN_SSE4_2_NATIVE
+		// int mask = php_json_sse42_compute_escape_intersection_real(sse_escape_mask, input);
+// #elif defined(ZEND_INTRIN_SSE4_2_FUNC_PROTO)
+		// int mask = php_json_sse42_compute_escape_intersection(sse_escape_mask, input);
+// #else
+		// int mask = php_json_sse2_compute_escape_intersection(_mm_setzero_si128(), input);
+// #endif
+		int mask = dontchangeme(sse_escape_mask, input);
 		if (mask != 0) {
 			if (UNEXPECTED(max_shift < sizeof(__m128i))) {
 				int shift = zend_ulong_ntz(mask); /* first offending character */
