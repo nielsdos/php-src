@@ -795,9 +795,7 @@ zend_result php_json_escape_string(
 		}
 	} while (len);
 
-	if (pos) {
-		php_json_append(buf, s, pos);
-	}
+	php_json_append(buf, s, pos);
 
 	ZEND_ASSERT(buf->s);
 	smart_str_appendc(buf, '"');
