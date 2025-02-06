@@ -520,13 +520,13 @@ zend_always_inline int php_json_sse42_compute_escape_intersection_real(const __m
 #endif
 
 #ifdef ZEND_INTRIN_SSE4_2_FUNC_PROTO
-static int php_json_sse42_compute_escape_intersection(const __m128i mask, const __m128i input) __attribute__((ifunc("resolve_json_escape_intersection")));
+static int php_json_sse42_compute_escape_intersection(const __m128i mask, const __m128i input) __attribute__((ifunc("php_json_resolve_escape_intersection")));
 
 typedef int (*php_json_compute_escape_intersection_t)(const __m128i mask, const __m128i input);
 
 ZEND_NO_SANITIZE_ADDRESS
 ZEND_ATTRIBUTE_UNUSED /* clang mistakenly warns about this */
-static php_json_compute_escape_intersection_t resolve_json_escape_intersection(void) { // TODO: rename
+static php_json_compute_escape_intersection_t php_json_resolve_escape_intersection(void) {
 	if (zend_cpu_supports_sse42()) {
 		return php_json_sse42_compute_escape_intersection_real;
 	}
@@ -541,7 +541,9 @@ typedef enum php_json_simd_result {
 	PHP_JSON_NON_ASCII,
 } php_json_simd_result;
 
-static zend_always_inline php_json_simd_result php_json_process_simd_block(smart_str *buf, const __m128i sse_escape_mask, const char **s, size_t *pos, size_t *len, int options)
+static zend_always_inline php_json_simd_result php_json_process_simd_block(
+	smart_str *buf, const __m128i sse_escape_mask, const char **s, size_t *pos, size_t *len, int options
+)
 {
 	while (*len >= sizeof(__m128i)) {
 		const __m128i input = _mm_loadu_si128((const __m128i *) (*s + *pos));
