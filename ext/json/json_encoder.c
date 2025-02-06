@@ -673,7 +673,7 @@ zend_result php_json_escape_string(
 #endif
 
 		us = (unsigned char)s[pos];
-		if (result != PHP_JSON_NON_ASCII && EXPECTED(!ZEND_BIT_TEST(charmap, us))) {
+		if (EXPECTED(result != PHP_JSON_NON_ASCII && !ZEND_BIT_TEST(charmap, us))) {
 			pos++;
 			len--;
 		} else {
@@ -727,13 +727,13 @@ zend_result php_json_escape_string(
 					ZEND_ASSERT(buf->s);
 
 					/* From http://en.wikipedia.org/wiki/UTF16 */
+					dst = smart_str_extend(buf, 6 + ((us >= 0x10000) ? 6 : 0));
 					if (us >= 0x10000) {
 						unsigned int next_us;
 
 						us -= 0x10000;
 						next_us = (unsigned short)((us & 0x3ff) | 0xdc00);
 						us = (unsigned short)((us >> 10) | 0xd800);
-						dst = smart_str_extend(buf, 6);
 						dst[0] = '\\';
 						dst[1] = 'u';
 						dst[2] = digits[(us >> 12) & 0xf];
@@ -741,8 +741,8 @@ zend_result php_json_escape_string(
 						dst[4] = digits[(us >> 4) & 0xf];
 						dst[5] = digits[us & 0xf];
 						us = next_us;
+						dst += 6;
 					}
-					dst = smart_str_extend(buf, 6);
 					dst[0] = '\\';
 					dst[1] = 'u';
 					dst[2] = digits[(us >> 12) & 0xf];
