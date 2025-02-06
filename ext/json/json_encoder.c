@@ -634,7 +634,7 @@ zend_result php_json_escape_string(
 
 				pos = sizeof(__m128i) - (s - s_backup);
 			} else {
-				if (max_shift < sizeof(__m128i)) {
+				if (UNEXPECTED(max_shift < sizeof(__m128i))) {
 					pos += max_shift;
 					len -= max_shift;
 					break;
