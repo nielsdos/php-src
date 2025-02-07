@@ -544,7 +544,7 @@ typedef enum php_json_simd_result {
 static zend_always_inline php_json_simd_result php_json_process_simd_block(
 	smart_str *buf,
 	const __m128i sse_escape_mask,
-	const char **s,
+	const char **restrict s,
 	size_t *restrict pos,
 	size_t *restrict len,
 	int options
@@ -666,6 +666,7 @@ zend_result php_json_escape_string(
 
 		php_json_simd_result result = PHP_JSON_SLOW;
 #ifdef JSON_USE_SIMD
+// TODO: html.c  change (incl UNEXPECTED) & mss dit manueel terug inlinen?
 		result = php_json_process_simd_block(buf, sse_escape_mask, &s, &pos, &len, options);
 		if (UNEXPECTED(result == PHP_JSON_STOP)) {
 			break;
@@ -678,11 +679,10 @@ zend_result php_json_escape_string(
 			len--;
 		} else {
 			if (UNEXPECTED(us >= 0x80)) {
-				zend_result status;
 				size_t pos_old = pos;
 				const char *cur = s + pos;
 				pos = 0;
-				us = php_next_utf8_char((unsigned char *)cur, len, &pos, &status);
+				us = php_next_utf8_char_ex((unsigned char *)cur, us, len, &pos);
 				len -= pos;
 				pos += pos_old;
 
