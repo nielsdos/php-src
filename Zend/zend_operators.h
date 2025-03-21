@@ -473,13 +473,15 @@ ZEND_API char*        ZEND_FASTCALL zend_str_toupper_dup(const char *source, siz
 ZEND_API char*        ZEND_FASTCALL zend_str_tolower_dup_ex(const char *source, size_t length);
 ZEND_API char*        ZEND_FASTCALL zend_str_toupper_dup_ex(const char *source, size_t length);
 ZEND_API zend_string* ZEND_FASTCALL zend_string_tolower_ex(zend_string *str, bool persistent);
+ZEND_API zend_string* ZEND_FASTCALL zend_string_tolower_ex2(zend_string *str, bool persistent, bool in_place);
 ZEND_API zend_string* ZEND_FASTCALL zend_string_toupper_ex(zend_string *str, bool persistent);
+ZEND_API zend_string* ZEND_FASTCALL zend_string_toupper_ex2(zend_string *str, bool persistent, bool in_place);
 
 static zend_always_inline zend_string* zend_string_tolower(zend_string *str) {
-	return zend_string_tolower_ex(str, false);
+	return zend_string_tolower_ex2(str, false, false);
 }
 static zend_always_inline zend_string* zend_string_toupper(zend_string *str) {
-	return zend_string_toupper_ex(str, false);
+	return zend_string_toupper_ex2(str, false, false);
 }
 
 ZEND_API int ZEND_FASTCALL zend_binary_zval_strcmp(zval *s1, zval *s2);
