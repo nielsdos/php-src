@@ -515,15 +515,6 @@ void zend_optimizer_compact_literals(zend_op_array *op_array, zend_optimizer_ctx
 					}
 					break;
 				}
-				case ZEND_VERIFY_RETURN_TYPE:
-				{
-					size_t num_classes = type_num_classes(op_array, 0);
-					if (num_classes) {
-						opline->op2.num = cache_size;
-						cache_size += num_classes * sizeof(void *);
-					}
-					break;
-				}
 				case ZEND_ASSIGN_STATIC_PROP_OP:
 					if (opline->op1_type == IS_CONST) {
 						// op1 static property
