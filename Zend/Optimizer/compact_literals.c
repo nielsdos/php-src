@@ -460,6 +460,18 @@ void zend_optimizer_compact_literals(zend_op_array *op_array, zend_optimizer_ctx
 				opline->op2.constant = map[opline->op2.constant];
 			}
 			switch (opline->opcode) {
+				case ZEND_RECV:
+				case ZEND_RECV_INIT:
+				case ZEND_RECV_VARIADIC:
+					if (1) { // TODO: only do this if we have a type AST!
+						opline->extended_value = cache_size;
+						cache_size += sizeof(void *);
+					}
+					break;
+				case ZEND_VERIFY_RETURN_TYPE:
+					opline->op2.num = cache_size;
+					cache_size += sizeof(void *);
+					break;
 				case ZEND_ASSIGN_STATIC_PROP_OP:
 					if (opline->op1_type == IS_CONST) {
 						// op1 static property
