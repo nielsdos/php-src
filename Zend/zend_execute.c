@@ -1145,9 +1145,9 @@ static zend_always_inline bool zend_check_type_slow(
 		bool is_return_type, bool is_internal)
 {
 	if (ZEND_TYPE_IS_COMPLEX(*type) && EXPECTED(Z_TYPE_P(arg) == IS_OBJECT)) {
-		if (*cache_slot == Z_OBJCE_P(arg)) {
-			return true;
-		}
+		// if (*cache_slot == Z_OBJCE_P(arg)) {
+			// return true;
+		// }
 		zend_class_entry *ce;
 		if (UNEXPECTED(ZEND_TYPE_HAS_LIST(*type))) {
 			if (ZEND_TYPE_IS_INTERSECTION(*type)) {
@@ -1241,6 +1241,10 @@ static zend_always_inline bool zend_verify_recv_arg_type(const zend_function *zf
 
 	ZEND_ASSERT(arg_num <= zf->common.num_args);
 	cur_arg_info = &zf->common.arg_info[arg_num-1];
+
+	if (Z_TYPE_P(arg) == IS_OBJECT && *cache_slot == Z_OBJCE_P(arg)) {
+		return 1;
+	}
 
 	if (ZEND_TYPE_IS_SET(cur_arg_info->type)
 			&& UNEXPECTED(!zend_check_type(&cur_arg_info->type, arg, cache_slot, zf->common.scope, 0, 0))) {
