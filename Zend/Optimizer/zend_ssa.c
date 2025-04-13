@@ -554,7 +554,8 @@ static zend_always_inline int _zend_ssa_rename_op(const zend_op_array *op_array,
 	}
 	if ((build_flags & ZEND_SSA_USE_CV_RESULTS)
 	 && opline->result_type == IS_CV
-	 && opline->opcode != ZEND_RECV) {
+	 && opline->opcode != ZEND_RECV
+	 && opline->opcode != ZEND_RECV_CE) {
 		ssa_ops[k].result_use = var[EX_VAR_TO_NUM(opline->result.var)];
 		//USE_SSA_VAR(op_array->last_var + opline->result.var)
 	}

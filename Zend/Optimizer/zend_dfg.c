@@ -41,7 +41,8 @@ static zend_always_inline void _zend_dfg_add_use_def_op(const zend_op_array *op_
 	}
 	if ((build_flags & ZEND_SSA_USE_CV_RESULTS)
 	 && opline->result_type == IS_CV
-	 && opline->opcode != ZEND_RECV) {
+	 && opline->opcode != ZEND_RECV
+	 && opline->opcode != ZEND_RECV_CE) {
 		var_num = EX_VAR_TO_NUM(opline->result.var);
 		if (!zend_bitset_in(def, var_num)) {
 			zend_bitset_incl(use, var_num);

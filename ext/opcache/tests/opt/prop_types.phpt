@@ -58,7 +58,7 @@ noScope:
 BB0:
      ; start exit lines=[0-9]
      ; level=0
-0000 #1.CV0($test) [object (instanceof Test)] = RECV 1
+0000 #1.CV0($test) [object (instanceof Test)] = RECV_CE 1 string("Test")
 0001 INIT_FCALL 3 %d string("var_dump")
 0002 #2.T1 [bool] = FETCH_OBJ_R #1.CV0($test) [object (instanceof Test)] string("public")
 0003 SEND_VAL #2.T1 [bool] 1
@@ -96,7 +96,7 @@ Test::inTestWithTest2:
 BB0:
      ; start exit lines=[0-9]
      ; level=0
-0000 #1.CV0($test2) [object (instanceof Test2)] = RECV 1
+0000 #1.CV0($test2) [object (instanceof Test2)] = RECV_CE 1 string("Test2")
 0001 INIT_FCALL 3 %d string("var_dump")
 0002 #2.T1 [bool] = FETCH_OBJ_R #1.CV0($test2) [object (instanceof Test2)] string("public")
 0003 SEND_VAL #2.T1 [bool] 1

@@ -1099,10 +1099,9 @@ static zend_always_inline bool zend_value_instanceof_static(const zval *zv) {
 	return instanceof_function(Z_OBJCE_P(zv), called_scope);
 }
 
-static zend_always_inline zend_class_entry *zend_fetch_ce_from_type(
-		const zend_type *type)
+static zend_always_inline zend_class_entry *zend_fetch_ce_from_type_name(
+	zend_string *name)
 {
-	zend_string *name = ZEND_TYPE_NAME(*type);
 	zend_class_entry *ce;
 	if (ZSTR_HAS_CE_CACHE(name)) {
 		ce = ZSTR_GET_CE_CACHE(name);
@@ -1121,6 +1120,13 @@ static zend_always_inline zend_class_entry *zend_fetch_ce_from_type(
 		}
 	}
 	return ce;
+}
+
+static zend_always_inline zend_class_entry *zend_fetch_ce_from_type(
+		const zend_type *type)
+{
+	zend_string *name = ZEND_TYPE_NAME(*type);
+	return zend_fetch_ce_from_type_name(name);
 }
 
 static bool zend_check_intersection_type_from_list(
@@ -5510,7 +5516,7 @@ ZEND_API zend_result ZEND_FASTCALL zend_handle_undef_args(zend_execute_data *cal
 					ZVAL_COPY(arg, default_value);
 				}
 			} else {
-				ZEND_ASSERT(opline->opcode == ZEND_RECV);
+				ZEND_ASSERT(opline->opcode == ZEND_RECV);//TODO
 				zend_execute_data *old = start_fake_frame(call, opline);
 				zend_argument_error(zend_ce_argument_count_error, i + 1, "not passed");
 				end_fake_frame(call, old);
