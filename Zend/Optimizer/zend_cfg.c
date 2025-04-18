@@ -76,7 +76,8 @@ static void zend_mark_reachable(zend_op *opcodes, zend_cfg *cfg, zend_basic_bloc
 						}
 						if ((cfg->flags & ZEND_CFG_RECV_ENTRY)) {
 							if (opcode == ZEND_RECV ||
-								opcode == ZEND_RECV_INIT) {
+								opcode == ZEND_RECV_INIT ||
+								opcode == ZEND_RECV_CE) {
 								succ->flags |= ZEND_BB_RECV_ENTRY;
 							}
 						}
@@ -292,6 +293,7 @@ ZEND_API void zend_build_cfg(zend_arena **arena, const zend_op_array *op_array, 
 		zend_op *opline = op_array->opcodes + i;
 		switch (opline->opcode) {
 			case ZEND_RECV:
+			case ZEND_RECV_CE:
 			case ZEND_RECV_INIT:
 				if (build_flags & ZEND_CFG_RECV_ENTRY) {
 					BB_START(i + 1);

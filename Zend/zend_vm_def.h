@@ -5695,6 +5695,28 @@ ZEND_VM_HOT_HANDLER(63, ZEND_RECV, NUM, UNUSED)
 	ZEND_VM_NEXT_OPCODE();
 }
 
+ZEND_VM_HOT_HANDLER(210, ZEND_RECV_CE, NUM, CONST)
+{
+	USE_OPLINE
+	uint32_t arg_num = opline->op1.num;
+	zend_string *ce_name = Z_STR_P(RT_CONSTANT(opline, opline->op2));
+	zval *param;
+	zend_class_entry *ce;
+
+	if (UNEXPECTED(arg_num > EX_NUM_ARGS())) {
+		ZEND_VM_DISPATCH_TO_HELPER(zend_missing_arg_helper);
+	}
+
+	param = EX_VAR(opline->result.var);
+	// fprintf(stderr,"ce_name=%s %x\n", ZSTR_VAL(ce_name), ZSTR_GET_CE_CACHE(ce_name));
+
+	if (EXPECTED(Z_TYPE_P(param) == IS_OBJECT && (ce = zend_fetch_ce_from_type_name(ce_name)) && instanceof_function(Z_OBJCE_P(param), ce))) {
+		ZEND_VM_NEXT_OPCODE();
+	} else {
+		ZEND_VM_DISPATCH_TO_HELPER(zend_verify_recv_arg_type_helper, op_1, param);
+	}
+}
+
 ZEND_VM_HOT_TYPE_SPEC_HANDLER(ZEND_RECV, op->op2.num == MAY_BE_ANY, ZEND_RECV_NOTYPE, NUM, NUM)
 {
 	USE_OPLINE

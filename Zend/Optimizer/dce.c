@@ -176,6 +176,7 @@ static inline bool may_have_side_effects(
 			/* For now assume all calls have side effects */
 			return 1;
 		case ZEND_RECV:
+		case ZEND_RECV_CE:
 		case ZEND_RECV_INIT:
 			/* Even though RECV_INIT can be side-effect free, these cannot be simply dropped
 			 * due to the prologue skipping code. */

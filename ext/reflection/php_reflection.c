@@ -697,6 +697,7 @@ static zend_op *get_recv_op(const zend_op_array *op_array, uint32_t offset)
 	++offset;
 	while (op < end) {
 		if ((op->opcode == ZEND_RECV || op->opcode == ZEND_RECV_INIT
+			|| op->opcode == ZEND_RECV_CE
 		    || op->opcode == ZEND_RECV_VARIADIC) && op->op1.num == offset)
 		{
 			return op;
