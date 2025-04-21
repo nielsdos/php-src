@@ -3300,6 +3300,7 @@ static zend_always_inline zend_result _zend_update_type_info(
 			UPDATE_SSA_TYPE(MAY_BE_STRING|MAY_BE_RC1|MAY_BE_RCN, ssa_op->result_def);
 			break;
 		case ZEND_RECV:
+		case ZEND_RECV_CE:
 		case ZEND_RECV_INIT:
 		case ZEND_RECV_VARIADIC:
 		{
@@ -4759,6 +4760,7 @@ static void zend_mark_cv_references(const zend_op_array *op_array, const zend_sc
 			if (ssa->ops[def].result_def == var) {
 				switch (opline->opcode) {
 					case ZEND_RECV:
+					case ZEND_RECV_CE:
 					case ZEND_RECV_INIT:
 						arg_info = &op_array->arg_info[opline->op1.num-1];
 						if (!ZEND_ARG_SEND_MODE(arg_info)) {

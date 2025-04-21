@@ -977,7 +977,7 @@ static ZEND_COLD zend_string *zend_get_function_declaration(
 
 						++idx;
 						while (op < end) {
-							if ((op->opcode == ZEND_RECV || op->opcode == ZEND_RECV_INIT)
+							if ((op->opcode == ZEND_RECV || op->opcode == ZEND_RECV_INIT || op->opcode == ZEND_RECV_CE)
 									&& op->op1.num == (zend_ulong)idx)
 							{
 								precv = op;
