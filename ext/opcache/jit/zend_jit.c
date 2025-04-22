@@ -117,7 +117,7 @@ static bool dominates(const zend_basic_block *blocks, int a, int b) {
 	return a == b;
 }
 
-static bool zend_ssa_is_last_use(const zend_op_array *op_array, const zend_ssa *ssa, int var, int use)
+bool zend_ssa_is_last_use(const zend_op_array *op_array, const zend_ssa *ssa, int var, int use)
 {
 	int next_use;
 
