@@ -268,7 +268,7 @@ static void zend_optimize_block(zend_basic_block *block, zend_op_array *op_array
 					VAR_SOURCE(opline->op1) = NULL;
 				}
 				break;
-
+#if 0
 			case ZEND_FREE:
 				/* Note: Only remove the source if the source is local to this block.
 				 * If it's not local, then the other blocks successors must also eventually either FREE or consume the temporary,
@@ -338,7 +338,7 @@ static void zend_optimize_block(zend_basic_block *block, zend_op_array *op_array
 					}
 				}
 				break;
-
+#endif
 #if 0
 		/* pre-evaluate functions:
 		   constant(x)
