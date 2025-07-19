@@ -14,6 +14,10 @@ PHP                                                                        NEWS
   . socket_set_option for multicast context throws a ValueError
     when the socket family is not of AF_INET/AF_INET6 family. (David Carlier)
 
+- Standard:
+  . Implement #71517 (Implement SVG support for getimagesize() and friends).
+    (nielsdos)
+
 - URI:
   . Empty host handling is fixed. (Máté Kocsis)
   . Error handling of Uri\WhatWg\Url::withHost() is fixed when the input
