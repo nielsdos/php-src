@@ -22,15 +22,11 @@ switch (++X::$prop) {
 ?>
 --EXPECTF--
 $_main:
-     ; (lines=7, args=0, vars=1, tmps=2)
+     ; (lines=5, args=0, vars=1, tmps=1)
      ; (after optimizer)
      ; %s
-0000 T1 = PRE_INC_STATIC_PROP string("prop") string("X")
-0001 T2 = ISSET_ISEMPTY_CV (empty) CV0($xx)
-0002 JMPZ T2 0005
-0003 FREE T1
-0004 RETURN null
-0005 FREE T1
-0006 RETURN int(1)
-LIVE RANGES:
-     1: 0001 - 0005 (tmp/var)
+0000 PRE_INC_STATIC_PROP string("prop") string("X")
+0001 T1 = ISSET_ISEMPTY_CV (empty) CV0($xx)
+0002 JMPZ T1 0004
+0003 RETURN null
+0004 RETURN int(1)

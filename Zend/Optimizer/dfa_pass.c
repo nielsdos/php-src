@@ -30,9 +30,9 @@
 #include "zend_inference.h"
 #include "zend_dump.h"
 
-#ifndef ZEND_DEBUG_DFA
+// #ifndef ZEND_DEBUG_DFA
 # define ZEND_DEBUG_DFA ZEND_DEBUG
-#endif
+// #endif
 
 #if ZEND_DEBUG_DFA
 # include "ssa_integrity.c"
@@ -1034,6 +1034,84 @@ static bool zend_dfa_try_to_replace_result(zend_op_array *op_array, zend_ssa *ss
 	return 0;
 }
 
+static int zend_dfa_remove_only_free_uses(zend_op_array *op_array, zend_ssa *ssa)
+{
+	int times_applied = 0;
+	for (uint32_t i = 0; i < op_array->last; i++) {
+		zend_op *opline = op_array->opcodes + i;
+		if (opline->opcode != ZEND_FREE) {
+			continue;
+		}
+		int op1_use = ssa->ops[i].op1_use;
+		/* Possible if it's unreachable. */
+		if (op1_use < 0) {
+			continue;
+		}
+		int definition = ssa->vars[op1_use].definition;
+		if (definition < 0) {
+			continue;
+		}
+		zend_op *defining_opline = op_array->opcodes + definition;
+		if (opline->op1_type == IS_TMP_VAR) {
+			switch (defining_opline->opcode) {
+				case ZEND_ASSIGN:
+				case ZEND_ASSIGN_DIM:
+				case ZEND_ASSIGN_OBJ:
+				case ZEND_ASSIGN_STATIC_PROP:
+				case ZEND_ASSIGN_OP:
+				case ZEND_ASSIGN_DIM_OP:
+				case ZEND_ASSIGN_OBJ_OP:
+				case ZEND_ASSIGN_STATIC_PROP_OP:
+				case ZEND_PRE_INC:
+				case ZEND_PRE_DEC:
+				case ZEND_PRE_INC_OBJ:
+				case ZEND_PRE_DEC_OBJ:
+				case ZEND_PRE_INC_STATIC_PROP:
+				case ZEND_PRE_DEC_STATIC_PROP:
+					break;
+				default:
+					continue;
+			}
+		} else if (opline->op1_type == IS_VAR) {
+			switch (defining_opline->opcode) {
+				case ZEND_FETCH_R:
+				case ZEND_FETCH_STATIC_PROP_R:
+				case ZEND_FETCH_DIM_R:
+				case ZEND_FETCH_OBJ_R:
+				case ZEND_NEW:
+				case ZEND_FETCH_THIS:
+					continue;
+				default:
+					break;
+			}
+		}
+		int use;
+		bool all_free = true;
+		int result_def = ssa->ops[definition].result_def;
+		if (result_def < 0) {
+			continue;
+		}
+		FOREACH_USE(ssa->vars + result_def, use) {
+			if (op_array->opcodes[use].opcode != ZEND_FREE) {
+				all_free = false;
+				break;
+			}
+		} FOREACH_USE_END();
+		if (all_free) {
+			FOREACH_USE(ssa->vars + result_def, use) {
+				MAKE_NOP(op_array->opcodes + use);
+				ssa->ops[use].op1_use_chain = -1;
+				ssa->ops[use].op1_use = -1;
+			} FOREACH_USE_END();
+			defining_opline->result_type = IS_UNUSED;
+			zend_ssa_remove_uses_of_var(ssa, result_def);
+			zend_ssa_remove_result_def(ssa, ssa->ops + definition);
+			times_applied++;
+		}
+	}
+	return times_applied;
+}
+
 void zend_dfa_optimize_op_array(zend_op_array *op_array, zend_optimizer_ctx *ctx, zend_ssa *ssa, zend_call_info **call_map)
 {
 	if (ctx->debug_level & ZEND_DUMP_BEFORE_DFA_PASS) {
@@ -1051,6 +1129,10 @@ void zend_dfa_optimize_op_array(zend_op_array *op_array, zend_optimizer_ctx *ctx
 #if ZEND_DEBUG_DFA
 		ssa_verify_integrity(op_array, ssa, "before dfa");
 #endif
+
+		if (zend_dfa_remove_only_free_uses(op_array, ssa)) {
+			remove_nops = 1;
+		}
 
 		if (ZEND_OPTIMIZER_PASS_8 & ctx->optimization_level) {
 			if (sccp_optimize_op_array(ctx, op_array, ssa, call_map)) {
