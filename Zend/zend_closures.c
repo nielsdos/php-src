@@ -317,6 +317,7 @@ static ZEND_NAMED_FUNCTION(zend_closure_call_magic) /* {{{ */ {
 		} ZEND_HASH_FOREACH_END();
 	} else if (ZEND_NUM_ARGS()) {
 		array_init_size(&fci.params[1], ZEND_NUM_ARGS());
+		zend_hash_real_init_packed(Z_ARRVAL(fci.params[1]));
 		zend_copy_parameters_array(ZEND_NUM_ARGS(), &fci.params[1]);
 	} else {
 		ZVAL_EMPTY_ARRAY(&fci.params[1]);
