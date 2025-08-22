@@ -23671,6 +23671,10 @@ assign_op_object:
 			} else {
 				zend_reference *ref;
 
+				if (IS_VAR == IS_CV) {
+					GC_ADDREF(zobj);
+				}
+
 				do {
 					if (UNEXPECTED(Z_ISREF_P(zptr))) {
 						ref = Z_REF_P(zptr);
@@ -23692,6 +23696,10 @@ assign_op_object:
 
 				if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
 					ZVAL_COPY(EX_VAR(opline->result.var), zptr);
+				}
+
+				if (IS_VAR == IS_CV) {
+					GC_DTOR(zobj);
 				}
 			}
 		} else {
@@ -23745,6 +23753,8 @@ assign_dim_op_new_array:
 
 		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
 
+		GC_ADDREF(ht);
+
 		do {
 			if (IS_CONST != IS_UNUSED && UNEXPECTED(Z_ISREF_P(var_ptr))) {
 				zend_reference *ref = Z_REF_P(var_ptr);
@@ -23760,6 +23770,7 @@ assign_dim_op_new_array:
 		if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
 			ZVAL_COPY(EX_VAR(opline->result.var), var_ptr);
 		}
+		GC_DTOR_NO_REF(ht);
 		FREE_OP((opline+1)->op1_type, (opline+1)->op1.var);
 	} else {
 		if (EXPECTED(Z_ISREF_P(container))) {
@@ -26672,6 +26683,10 @@ assign_op_object:
 			} else {
 				zend_reference *ref;
 
+				if (IS_VAR == IS_CV) {
+					GC_ADDREF(zobj);
+				}
+
 				do {
 					if (UNEXPECTED(Z_ISREF_P(zptr))) {
 						ref = Z_REF_P(zptr);
@@ -26693,6 +26708,10 @@ assign_op_object:
 
 				if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
 					ZVAL_COPY(EX_VAR(opline->result.var), zptr);
+				}
+
+				if (IS_VAR == IS_CV) {
+					GC_DTOR(zobj);
 				}
 			}
 		} else {
@@ -26746,6 +26765,8 @@ assign_dim_op_new_array:
 
 		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
 
+		GC_ADDREF(ht);
+
 		do {
 			if ((IS_TMP_VAR|IS_VAR) != IS_UNUSED && UNEXPECTED(Z_ISREF_P(var_ptr))) {
 				zend_reference *ref = Z_REF_P(var_ptr);
@@ -26761,6 +26782,7 @@ assign_dim_op_new_array:
 		if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
 			ZVAL_COPY(EX_VAR(opline->result.var), var_ptr);
 		}
+		GC_DTOR_NO_REF(ht);
 		FREE_OP((opline+1)->op1_type, (opline+1)->op1.var);
 	} else {
 		if (EXPECTED(Z_ISREF_P(container))) {
@@ -29217,6 +29239,8 @@ assign_dim_op_new_array:
 
 		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
 
+		GC_ADDREF(ht);
+
 		do {
 			if (IS_UNUSED != IS_UNUSED && UNEXPECTED(Z_ISREF_P(var_ptr))) {
 				zend_reference *ref = Z_REF_P(var_ptr);
@@ -29232,6 +29256,7 @@ assign_dim_op_new_array:
 		if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
 			ZVAL_COPY(EX_VAR(opline->result.var), var_ptr);
 		}
+		GC_DTOR_NO_REF(ht);
 		FREE_OP((opline+1)->op1_type, (opline+1)->op1.var);
 	} else {
 		if (EXPECTED(Z_ISREF_P(container))) {
@@ -31031,6 +31056,10 @@ assign_op_object:
 			} else {
 				zend_reference *ref;
 
+				if (IS_VAR == IS_CV) {
+					GC_ADDREF(zobj);
+				}
+
 				do {
 					if (UNEXPECTED(Z_ISREF_P(zptr))) {
 						ref = Z_REF_P(zptr);
@@ -31052,6 +31081,10 @@ assign_op_object:
 
 				if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
 					ZVAL_COPY(EX_VAR(opline->result.var), zptr);
+				}
+
+				if (IS_VAR == IS_CV) {
+					GC_DTOR(zobj);
 				}
 			}
 		} else {
@@ -31105,6 +31138,8 @@ assign_dim_op_new_array:
 
 		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
 
+		GC_ADDREF(ht);
+
 		do {
 			if (IS_CV != IS_UNUSED && UNEXPECTED(Z_ISREF_P(var_ptr))) {
 				zend_reference *ref = Z_REF_P(var_ptr);
@@ -31120,6 +31155,7 @@ assign_dim_op_new_array:
 		if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
 			ZVAL_COPY(EX_VAR(opline->result.var), var_ptr);
 		}
+		GC_DTOR_NO_REF(ht);
 		FREE_OP((opline+1)->op1_type, (opline+1)->op1.var);
 	} else {
 		if (EXPECTED(Z_ISREF_P(container))) {
@@ -33702,6 +33738,10 @@ assign_op_object:
 			} else {
 				zend_reference *ref;
 
+				if (IS_UNUSED == IS_CV) {
+					GC_ADDREF(zobj);
+				}
+
 				do {
 					if (UNEXPECTED(Z_ISREF_P(zptr))) {
 						ref = Z_REF_P(zptr);
@@ -33723,6 +33763,10 @@ assign_op_object:
 
 				if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
 					ZVAL_COPY(EX_VAR(opline->result.var), zptr);
+				}
+
+				if (IS_UNUSED == IS_CV) {
+					GC_DTOR(zobj);
 				}
 			}
 		} else {
@@ -35888,6 +35932,10 @@ assign_op_object:
 			} else {
 				zend_reference *ref;
 
+				if (IS_UNUSED == IS_CV) {
+					GC_ADDREF(zobj);
+				}
+
 				do {
 					if (UNEXPECTED(Z_ISREF_P(zptr))) {
 						ref = Z_REF_P(zptr);
@@ -35909,6 +35957,10 @@ assign_op_object:
 
 				if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
 					ZVAL_COPY(EX_VAR(opline->result.var), zptr);
+				}
+
+				if (IS_UNUSED == IS_CV) {
+					GC_DTOR(zobj);
 				}
 			}
 		} else {
@@ -38537,6 +38589,10 @@ assign_op_object:
 			} else {
 				zend_reference *ref;
 
+				if (IS_UNUSED == IS_CV) {
+					GC_ADDREF(zobj);
+				}
+
 				do {
 					if (UNEXPECTED(Z_ISREF_P(zptr))) {
 						ref = Z_REF_P(zptr);
@@ -38558,6 +38614,10 @@ assign_op_object:
 
 				if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
 					ZVAL_COPY(EX_VAR(opline->result.var), zptr);
+				}
+
+				if (IS_UNUSED == IS_CV) {
+					GC_DTOR(zobj);
 				}
 			}
 		} else {
@@ -42649,6 +42709,10 @@ assign_op_object:
 			} else {
 				zend_reference *ref;
 
+				if (IS_CV == IS_CV) {
+					GC_ADDREF(zobj);
+				}
+
 				do {
 					if (UNEXPECTED(Z_ISREF_P(zptr))) {
 						ref = Z_REF_P(zptr);
@@ -42670,6 +42734,10 @@ assign_op_object:
 
 				if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
 					ZVAL_COPY(EX_VAR(opline->result.var), zptr);
+				}
+
+				if (IS_CV == IS_CV) {
+					GC_DTOR(zobj);
 				}
 			}
 		} else {
@@ -42723,6 +42791,8 @@ assign_dim_op_new_array:
 
 		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
 
+		GC_ADDREF(ht);
+
 		do {
 			if (IS_CONST != IS_UNUSED && UNEXPECTED(Z_ISREF_P(var_ptr))) {
 				zend_reference *ref = Z_REF_P(var_ptr);
@@ -42738,6 +42808,7 @@ assign_dim_op_new_array:
 		if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
 			ZVAL_COPY(EX_VAR(opline->result.var), var_ptr);
 		}
+		GC_DTOR_NO_REF(ht);
 		FREE_OP((opline+1)->op1_type, (opline+1)->op1.var);
 	} else {
 		if (EXPECTED(Z_ISREF_P(container))) {
@@ -46603,6 +46674,10 @@ assign_op_object:
 			} else {
 				zend_reference *ref;
 
+				if (IS_CV == IS_CV) {
+					GC_ADDREF(zobj);
+				}
+
 				do {
 					if (UNEXPECTED(Z_ISREF_P(zptr))) {
 						ref = Z_REF_P(zptr);
@@ -46624,6 +46699,10 @@ assign_op_object:
 
 				if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
 					ZVAL_COPY(EX_VAR(opline->result.var), zptr);
+				}
+
+				if (IS_CV == IS_CV) {
+					GC_DTOR(zobj);
 				}
 			}
 		} else {
@@ -46677,6 +46756,8 @@ assign_dim_op_new_array:
 
 		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
 
+		GC_ADDREF(ht);
+
 		do {
 			if ((IS_TMP_VAR|IS_VAR) != IS_UNUSED && UNEXPECTED(Z_ISREF_P(var_ptr))) {
 				zend_reference *ref = Z_REF_P(var_ptr);
@@ -46692,6 +46773,7 @@ assign_dim_op_new_array:
 		if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
 			ZVAL_COPY(EX_VAR(opline->result.var), var_ptr);
 		}
+		GC_DTOR_NO_REF(ht);
 		FREE_OP((opline+1)->op1_type, (opline+1)->op1.var);
 	} else {
 		if (EXPECTED(Z_ISREF_P(container))) {
@@ -49785,6 +49867,8 @@ assign_dim_op_new_array:
 
 		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
 
+		GC_ADDREF(ht);
+
 		do {
 			if (IS_UNUSED != IS_UNUSED && UNEXPECTED(Z_ISREF_P(var_ptr))) {
 				zend_reference *ref = Z_REF_P(var_ptr);
@@ -49800,6 +49884,7 @@ assign_dim_op_new_array:
 		if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
 			ZVAL_COPY(EX_VAR(opline->result.var), var_ptr);
 		}
+		GC_DTOR_NO_REF(ht);
 		FREE_OP((opline+1)->op1_type, (opline+1)->op1.var);
 	} else {
 		if (EXPECTED(Z_ISREF_P(container))) {
@@ -52107,6 +52192,10 @@ assign_op_object:
 			} else {
 				zend_reference *ref;
 
+				if (IS_CV == IS_CV) {
+					GC_ADDREF(zobj);
+				}
+
 				do {
 					if (UNEXPECTED(Z_ISREF_P(zptr))) {
 						ref = Z_REF_P(zptr);
@@ -52128,6 +52217,10 @@ assign_op_object:
 
 				if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
 					ZVAL_COPY(EX_VAR(opline->result.var), zptr);
+				}
+
+				if (IS_CV == IS_CV) {
+					GC_DTOR(zobj);
 				}
 			}
 		} else {
@@ -52181,6 +52274,8 @@ assign_dim_op_new_array:
 
 		value = get_op_data_zval_ptr_r((opline+1)->op1_type, (opline+1)->op1);
 
+		GC_ADDREF(ht);
+
 		do {
 			if (IS_CV != IS_UNUSED && UNEXPECTED(Z_ISREF_P(var_ptr))) {
 				zend_reference *ref = Z_REF_P(var_ptr);
@@ -52196,6 +52291,7 @@ assign_dim_op_new_array:
 		if (UNEXPECTED(RETURN_VALUE_USED(opline))) {
 			ZVAL_COPY(EX_VAR(opline->result.var), var_ptr);
 		}
+		GC_DTOR_NO_REF(ht);
 		FREE_OP((opline+1)->op1_type, (opline+1)->op1.var);
 	} else {
 		if (EXPECTED(Z_ISREF_P(container))) {
