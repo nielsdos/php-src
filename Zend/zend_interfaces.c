@@ -508,12 +508,17 @@ ZEND_API zend_result zend_create_internal_iterator_zval(zval *return_value, zval
 		return FAILURE;
 	}
 
+	zend_create_internal_iterator_iter(return_value, iter);
+	return SUCCESS;
+}
+
+ZEND_API void zend_create_internal_iterator_iter(zval *return_value, zend_object_iterator *iter)
+{
 	zend_internal_iterator *intern =
 		(zend_internal_iterator *) zend_internal_iterator_create(zend_ce_internal_iterator);
 	intern->iter = iter;
 	intern->iter->index = 0;
 	ZVAL_OBJ(return_value, &intern->std);
-	return SUCCESS;
 }
 
 static void zend_internal_iterator_free(zend_object *obj) {

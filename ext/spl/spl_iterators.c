@@ -3026,6 +3026,247 @@ PHP_FUNCTION(iterator_to_array)
 	spl_iterator_apply(obj, use_keys ? spl_iterator_to_array_apply : spl_iterator_to_values_apply, (void*)return_value);
 } /* }}} */
 
+typedef struct {
+	/* To distinguish between arrays and iterator objects we use the fact that UINT32_MAX
+	 * is not a possible array hash position index. */
+	HashPosition hash_position_or_tag;
+	union {
+		zend_array *array;
+		zend_object_iterator *obj_iter;
+	};
+} spl_zip_iterator_entry;
+
+typedef struct {
+	zend_object_iterator intern;
+	spl_zip_iterator_entry *iterators;
+	zval key_array;
+	uint32_t iterator_count;
+} spl_zip_iterator;
+
+static zend_always_inline bool spl_zip_iterator_is_obj_entry(const spl_zip_iterator_entry *entry)
+{
+	return entry->hash_position_or_tag == UINT32_MAX;
+}
+
+static void spl_iterator_zip_dtor(zend_object_iterator *iter)
+{
+	spl_zip_iterator *zip_iterator = (spl_zip_iterator *) iter;
+	for (uint32_t i = 0; i < zip_iterator->iterator_count; i++) {
+		spl_zip_iterator_entry *current = &zip_iterator->iterators[i];
+		if (spl_zip_iterator_is_obj_entry(current)) {
+			zend_iterator_dtor(current->obj_iter);
+		} else {
+			zend_array_release(current->array);
+		}
+	}
+	zval_ptr_dtor(&iter->data);
+	efree(zip_iterator->iterators);
+}
+
+static zend_result spl_iterator_zip_valid(zend_object_iterator *iter)
+{
+	spl_zip_iterator *zip_iterator = (spl_zip_iterator *) iter;
+
+	uint32_t i = 0;
+	for (; i < zip_iterator->iterator_count; i++) {
+		spl_zip_iterator_entry *current = &zip_iterator->iterators[i];
+		if (spl_zip_iterator_is_obj_entry(current)) {
+			if (current->obj_iter->funcs->valid(current->obj_iter) != SUCCESS) {
+				return FAILURE;
+			}
+		} else {
+			current->hash_position_or_tag = zend_hash_get_current_pos_ex(current->array, current->hash_position_or_tag);
+			if (current->hash_position_or_tag >= current->array->nNumUsed) {
+				return FAILURE;
+			}
+		}
+	}
+
+	return i > 0 ? SUCCESS : FAILURE;
+}
+
+/* Invariant: returned array is packed and has all UNDEF elements. */
+static zend_array *spl_iterator_zip_reset_array(spl_zip_iterator *zip_iterator, zval *array_zv)
+{
+	/* Reuse array if it's RC1 */
+	if (!Z_ISUNDEF_P(array_zv) && Z_REFCOUNT_P(array_zv) == 1) {
+		zend_array *array = Z_ARR_P(array_zv);
+		if (HT_IS_PACKED(array)
+		 && array->nNumUsed == zip_iterator->iterator_count
+		 && array->nNumOfElements == zip_iterator->iterator_count) {
+			array->nNextFreeElement = zip_iterator->iterator_count;
+			for (uint32_t i = 0; i < zip_iterator->iterator_count; i++) {
+				zval_ptr_dtor(&array->arPacked[i]);
+				ZVAL_UNDEF(&array->arPacked[i]);
+			}
+			return array;
+		}
+	}
+
+	zval_ptr_dtor(array_zv);
+
+	/* Create optimized packed array */
+	zend_array *array = zend_new_array(zip_iterator->iterator_count);
+	zend_hash_real_init_packed(array);
+	array->nNumUsed = array->nNumOfElements = array->nNextFreeElement = zip_iterator->iterator_count;
+	ZVAL_ARR(array_zv, array);
+	return array;
+}
+
+void spl_iterator_zip_get_current_key(zend_object_iterator *iter, zval *key)
+{
+	spl_zip_iterator *zip_iterator = (spl_zip_iterator *) iter;
+
+	zend_array *array = spl_iterator_zip_reset_array(zip_iterator, &zip_iterator->key_array);
+
+	for (uint32_t i = 0; i < zip_iterator->iterator_count; i++) {
+		spl_zip_iterator_entry *current = &zip_iterator->iterators[i];
+		if (spl_zip_iterator_is_obj_entry(current)) {
+			current->obj_iter->funcs->get_current_key(current->obj_iter, &array->arPacked[i]);
+			if (UNEXPECTED(EG(exception))) {
+				ZVAL_NULL(key);
+				return;
+			}
+		} else {
+			zend_hash_get_current_key_zval_ex(current->array, &array->arPacked[i], &current->hash_position_or_tag);
+		}
+	}
+
+	ZVAL_COPY(key, &zip_iterator->key_array);
+}
+
+zval *spl_iterator_zip_get_current_data(zend_object_iterator *iter)
+{
+	spl_zip_iterator *zip_iterator = (spl_zip_iterator *) iter;
+
+	zend_array *array = spl_iterator_zip_reset_array(zip_iterator, &zip_iterator->intern.data);
+
+	for (uint32_t i = 0; i < zip_iterator->iterator_count; i++) {
+		spl_zip_iterator_entry *current = &zip_iterator->iterators[i];
+		zval *data;
+		if (spl_zip_iterator_is_obj_entry(current)) {
+			data = current->obj_iter->funcs->get_current_data(current->obj_iter);
+		} else {
+			data = zend_hash_get_current_data_ex(current->array, &current->hash_position_or_tag);
+		}
+		if (UNEXPECTED(data == NULL)) {
+			for (uint32_t j = 0; j < i; j++) {
+				zval_ptr_dtor(&array->arPacked[j]);
+				ZVAL_UNDEF(&array->arPacked[j]);
+			}
+			return NULL;
+		}
+		ZVAL_COPY(&array->arPacked[i], data);
+	}
+
+	return &iter->data;
+}
+
+void spl_iterator_zip_move_forward(zend_object_iterator *iter)
+{
+	spl_zip_iterator *zip_iterator = (spl_zip_iterator *) iter;
+
+	for (uint32_t i = 0; i < zip_iterator->iterator_count; i++) {
+		spl_zip_iterator_entry *current = &zip_iterator->iterators[i];
+		if (spl_zip_iterator_is_obj_entry(current)) {
+			current->obj_iter->funcs->move_forward(current->obj_iter);
+			if (UNEXPECTED(EG(exception))) {
+				return;
+			}
+		} else {
+			if (UNEXPECTED(zend_hash_move_forward_ex(current->array, &current->hash_position_or_tag) != SUCCESS)) {
+				return;
+			}
+		}
+	}
+}
+
+void spl_iterator_zip_rewind(zend_object_iterator *iter)
+{
+	spl_zip_iterator *zip_iterator = (spl_zip_iterator *) iter;
+
+	for (uint32_t i = 0; i < zip_iterator->iterator_count; i++) {
+		spl_zip_iterator_entry *current = &zip_iterator->iterators[i];
+		if (spl_zip_iterator_is_obj_entry(current)) {
+			if (current->obj_iter->funcs->rewind) {
+				current->obj_iter->funcs->rewind(current->obj_iter);
+				if (UNEXPECTED(EG(exception))) {
+					return;
+				}
+			} else if (iter->index > 0) {
+				zend_throw_error(NULL, "Iterator does not support rewinding because one or more sub iterators do not support rewinding");
+				return;
+			}
+		} else {
+			zend_hash_internal_pointer_reset_ex(current->array, &current->hash_position_or_tag);
+		}
+	}
+}
+
+static const zend_object_iterator_funcs spl_iterator_zip_funcs = {
+	spl_iterator_zip_dtor,
+	spl_iterator_zip_valid,
+	spl_iterator_zip_get_current_data,
+	spl_iterator_zip_get_current_key,
+	spl_iterator_zip_move_forward,
+	spl_iterator_zip_rewind,
+	NULL, /* invalidate_current */ // TODO ???
+	NULL, /* get_gc */
+};
+
+// TODO: by_ref support ???
+PHP_FUNCTION(iterator_zip)
+{
+	zval *argv;
+	uint32_t iterator_count;
+
+	ZEND_PARSE_PARAMETERS_START(0, -1)
+		Z_PARAM_VARIADIC('*', argv, iterator_count)
+	ZEND_PARSE_PARAMETERS_END();
+
+	spl_zip_iterator_entry *iterators = safe_emalloc(iterator_count, sizeof(spl_zip_iterator_entry), 0);
+
+	for (uint32_t i = 0; i < iterator_count; i++) {
+		if (UNEXPECTED(!zend_is_iterable(&argv[i]))) {
+			for (uint32_t j = 0; j < i; j++) {
+				spl_zip_iterator_entry *current = &iterators[i];
+				if (spl_zip_iterator_is_obj_entry(current)) {
+					zend_iterator_dtor(current->obj_iter);
+				} else {
+					zval_ptr_dtor(&argv[j]);
+				}
+			}
+			efree(iterators);
+			zend_argument_value_error(i + 1, "must be of type iterable, %s given", zend_zval_value_name(&argv[i]));
+			RETURN_THROWS();
+		}
+
+		if (Z_TYPE(argv[i]) == IS_ARRAY) {
+			iterators[i].hash_position_or_tag = 0;
+			iterators[i].array = Z_ARR(argv[i]);
+			Z_TRY_ADDREF(argv[i]);
+		} else {
+			ZEND_ASSERT(Z_TYPE(argv[i]) == IS_OBJECT);
+
+			zend_class_entry *ce = Z_OBJCE_P(&argv[i]);
+			zend_object_iterator *obj_iter = ce->get_iterator(ce, &argv[i], false);
+			iterators[i].hash_position_or_tag = UINT32_MAX;
+			iterators[i].obj_iter = obj_iter;
+		}
+	}
+
+	spl_zip_iterator *iterator = emalloc(sizeof(*iterator));
+	zend_iterator_init(&iterator->intern);
+	ZVAL_UNDEF(&iterator->intern.data);
+	ZVAL_UNDEF(&iterator->key_array);
+
+	iterator->intern.funcs = &spl_iterator_zip_funcs;
+	iterator->iterators = iterators;
+	iterator->iterator_count = iterator_count;
+
+	zend_create_internal_iterator_iter(return_value, &iterator->intern);
+}
+
 static int spl_iterator_count_apply(zend_object_iterator *iter, void *puser) /* {{{ */
 {
 	if (UNEXPECTED(*(zend_long*)puser == ZEND_LONG_MAX)) {
