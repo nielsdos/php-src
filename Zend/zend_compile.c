@@ -2677,6 +2677,8 @@ static void zend_emit_return_type_check(
 			opline->result_type = expr->op_type = IS_TMP_VAR;
 			opline->result.var = expr->u.op.var = get_temporary_variable();
 		}
+
+		opline->op2.num = zend_alloc_cache_slot();
 	}
 }
 /* }}} */
@@ -7872,6 +7874,11 @@ static void zend_compile_params(zend_ast *ast, zend_ast *return_type_ast, uint32
 		opline = zend_emit_op(NULL, opcode, NULL, &default_node);
 		SET_NODE(opline->result, &var_node);
 		opline->op1.num = i + 1;
+
+		if (type_ast) {
+			/* Allocate cache slot for last successful type check */
+			opline->extended_value = zend_alloc_cache_slot();
+		}
 
 		uint32_t arg_info_flags = _ZEND_ARG_INFO_FLAGS(is_ref, is_variadic, /* is_tentative */ 0)
 			| (is_promoted ? _ZEND_IS_PROMOTED_BIT : 0);
